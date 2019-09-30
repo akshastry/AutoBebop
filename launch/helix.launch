@@ -1,0 +1,6 @@
+<launch>
+
+    <include file="$(find bebop_driver)/launch/bebop_node.launch" />
+    <node pkg="AutoBebop" type="helix.py" name="helix" />
+
+</launch>
