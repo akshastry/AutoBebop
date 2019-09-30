@@ -67,7 +67,7 @@ def min_snap_traj(x0, xf, t0, tf):
     return traj
 
 def callback(data):
-#    rospy.loginfo(rospy.get_caller_id() + '  x:%f, y:%f, z:%f', data.pose.pose.position.x, data.pose.pose.position.y, data.pose.pose.position.z)
+#    rospy.loginfo(rospy.get_caller_id() + '  x:%f, y:%f, z:%f', data ().pose.pose.position.x, data.pose.pose.position.y, data.pose.pose.position.z)
      global flag_land
      global ctrl
      global flag_initialize
@@ -83,9 +83,14 @@ def callback(data):
 #     rospy.loginfo('flag_initialize: %r', flag_initialize)
      t = rospy.get_time() - t0
 	
-     xd	= min_acc_traj(waypointx[wpt_idx], waypointx[wpt_idx+1], t, t+waypoint_T[wpt_idx])
-     yd	= min_acc_traj(waypointy[wpt_idx], waypointy[wpt_idx+1], t, t+waypoint_T[wpt_idx])
-     zd	= min_acc_traj(waypointz[wpt_idx], waypointz[wpt_idx+1], t, t+waypoint_T[wpt_idx])
+     if (wpt_idx+1<len(waypointx)):
+        xd	= min_acc_traj(waypointx[wpt_idx], waypointx[wpt_idx+1], t, t+waypoint_T[wpt_idx])
+        yd	= min_acc_traj(waypointy[wpt_idx], waypointy[wpt_idx+1], t, t+waypoint_T[wpt_idx])
+        zd	= min_acc_traj(waypointz[wpt_idx], waypointz[wpt_idx+1], t, t+waypoint_T[wpt_idx])
+    else:
+        xd = waypointx[wpt_idx]
+        yd = waypointy[wpt_idx]
+        zd = waypointz[wpt_idx]
 
      errx = K_surface * xd - data.pose.pose.position.x + x0
      erry = K_surface * yd - data.pose.pose.position.y + y0
