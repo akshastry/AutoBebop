@@ -1,6 +1,5 @@
 <launch>
-
-    <include file="$(find bebop_driver)/launch/bebop_node.launch" />
-    <node pkg="AutoBebop" type="helix.py" name="helix" />
-
+    	<!-- <include file="$(find bebop_driver)/launch/bebop_node.launch" /> -->
+    	<node pkg="AutoBebop" type="helix.py" name="helix" />
+	<node pkg="rviz" type="rviz" name="rviz" args="-d $(find AutoBebop)/rviz/rviz_config.rviz"/>
 </launch>

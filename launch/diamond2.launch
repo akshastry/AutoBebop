@@ -1,6 +1,0 @@
-<launch>
-
-    <include file="$(find bebop_driver)/launch/bebop_node.launch" />
-    <node pkg="AutoBebop" type="diamond2.py" name="diamond2" />
-
-</launch>
