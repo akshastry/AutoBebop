@@ -1,0 +1,3 @@
+# AutoBebop
+
+Configuration files:
