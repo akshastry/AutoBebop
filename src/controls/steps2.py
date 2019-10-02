@@ -15,21 +15,25 @@ K_surface = 0.75
 #waypointy = [0, 0.75, 0.75, 0.75*2, 0.75*2, 0.75*3]
 #waypointz = [0.75, 0.75, 0.75*2, 0.75*2, 0.75*3, 0.75*3]
 
+#waypointx = [0, 0.75, 0.75, 0.75*2, 0.75*2, 0.75*3]
+#waypointy = [0, 0.75, 0.75, 0.75*2, 0.75*2, 0.75*3]
+#waypointz = [0, 0.0, 0.75*1, 0.75*1, 0.75*2, 0.75*2]
+
 waypointx = [0, 0.75, 0.75, 0.75*2, 0.75*2, 0.75*3, 0.75*3, 0.75*4]
 waypointy = [0, 0.75, 0.75, 0.75*2, 0.75*2, 0.75*3, 0.75*3, 0.75*4]
 waypointz = [0, 0.0, 0.75*1, 0.75*1, 0.75*2, 0.75*2, 0.75*3, 0.75*3]
 
 wpt_idx = 0
-r_ac = 0.2
+r_ac = 0.05
 v_ac = 0.1
 
-kpx = 0.1
-kpy = 0.1
-kpz = 0.5
+kpx = 0.6
+kpy = 0.6
+kpz = 1.0
 kp_psi = 0.5
 
-kdx = 0.1
-kdy = 0.1
+kdx = 0.7
+kdy = 0.7
 kdz = 0.0
 kd_psi = 0.1
 
@@ -47,9 +51,14 @@ T = 5.0
 omega = 2*3.14/T
 
 ctrl = Twist()
+pose_in = Odometry()
+pose_d_in = Odometry()
+
 pub = rospy.Publisher('bebop/cmd_vel', Twist, queue_size=1)
 pub_to = rospy.Publisher('bebop/takeoff', Empty, queue_size=1)
 pub_l = rospy.Publisher('bebop/land', Empty, queue_size=1)
+pub_pose_in = rospy.Publisher('/pose_in', Odometry, queue_size=1)
+pub_pose_d_in = rospy.Publisher('/pose_d_in', Odometry, queue_size=1)
 
 def steps2():
     rospy.init_node('lander', anonymous=True)
@@ -83,9 +92,12 @@ def callback(data):
      yd	= waypointy[wpt_idx]
      zd	= waypointz[wpt_idx]
 
-     errx = K_surface * xd - data.pose.pose.position.x + x0
-     erry = K_surface * yd - data.pose.pose.position.y + y0
-     errz = K_surface * zd - data.pose.pose.position.z + z0
+     x = data.pose.pose.position.x - x0
+     y = data.pose.pose.position.y - y0
+     z = data.pose.pose.position.z - z0
+     errx = K_surface * xd - x
+     erry = K_surface * yd - y
+     errz = K_surface * zd - z
      vx = data.twist.twist.linear.x
      vy = data.twist.twist.linear.y
      vz = data.twist.twist.linear.z
@@ -115,6 +127,37 @@ def callback(data):
      ctrl.linear.x = ux
      ctrl.linear.y = uy
      ctrl.linear.z = uz
+
+     pose_d_in.header.frame_id = "odom"
+     pose_d_in.child_frame_id = "base_link"
+     pose_d_in.header.stamp = rospy.get_rostime()
+     pose_d_in.pose.pose.position.x = xd
+     pose_d_in.pose.pose.position.y = yd
+     pose_d_in.pose.pose.position.z = zd+0.75
+     pose_d_in.twist.twist.linear.x = 0.0
+     pose_d_in.twist.twist.linear.y = 0.0
+     pose_d_in.twist.twist.linear.z = 0.0
+     pose_d_in.pose.pose.orientation.w = cos(0.5*psid)
+     pose_d_in.pose.pose.orientation.x = 0.0
+     pose_d_in.pose.pose.orientation.y = 0.0
+     pose_d_in.pose.pose.orientation.z = sin(0.5*psid)
+
+     pose_in.header.frame_id = "odom"
+     pose_in.child_frame_id = "base_link"
+     pose_in.header.stamp = rospy.get_rostime()
+     pose_in.pose.pose.position.x = x/K_surface
+     pose_in.pose.pose.position.y = y/K_surface
+     pose_in.pose.pose.position.z = z/K_surface+0.75
+     pose_in.twist.twist.linear.x = vx
+     pose_in.twist.twist.linear.y = vy
+     pose_in.twist.twist.linear.z = vz
+     pose_in.pose.pose.orientation.w = q0
+     pose_in.pose.pose.orientation.x = q1 
+     pose_in.pose.pose.orientation.y = q2
+     pose_in.pose.pose.orientation.z = q3
+
+     pub_pose_d_in.publish(pose_d_in)
+     pub_pose_in.publish(pose_in)
 
      if(flag_land==False):
      	pub.publish(ctrl)

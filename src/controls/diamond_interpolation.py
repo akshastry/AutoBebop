@@ -3,7 +3,7 @@
 import rospy, time
 from math import atan2, sin, cos
 from std_msgs.msg import String, Float64, Empty
-from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
+from geometry_msgs.msg import Pose, PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
 flag_initialize=True
@@ -12,10 +12,15 @@ flag_landed = True
 
 K_surface = 0.75
 
-waypointx = [0, 0, 0, 0, 1]
-waypointy = [0, 1, 0, 0, 0]
-waypointz = [0, 1, 2, 1, 0]
-waypoint_T = [5, 5, 5, 5, 5]
+waypointx = [0, 0]
+waypointy = [0, 1]
+waypointz = [0, 1]
+waypoint_T = [5, 5]
+
+# waypointx = [0, 0, 0, 0, 1]
+# waypointy = [0, 1, 0, 0, 0]
+# waypointz = [0, 1, 2, 1, 0]
+# waypoint_T = [5, 5, 5, 5, 5]
 wpt_idx = 0
 r_ac = 0.2
 v_ac = 0.1
@@ -44,9 +49,14 @@ T = 5.0
 omega = 2*3.14/T
 
 ctrl = Twist()
+pose_in = Odometry()
+pose_d_in = Odometry()
+
 pub = rospy.Publisher('bebop/cmd_vel', Twist, queue_size=1)
 pub_to = rospy.Publisher('bebop/takeoff', Empty, queue_size=1)
 pub_l = rospy.Publisher('bebop/land', Empty, queue_size=1)
+pub_pose_in = rospy.Publisher('/pose_in', Odometry, queue_size=1)
+pub_pose_d_in = rospy.Publisher('/pose_d_in', Odometry, queue_size=1)
 
 def diamond():
     global flag_landed
@@ -58,7 +68,7 @@ def diamond():
     rospy.Subscriber('bebop/odom', Odometry, callback)
     rospy.Subscriber('bebop/land', Empty, callback_land)
     rate = rospy.Rate(10) # 10hz
-
+    
     rospy.spin()
 
 def min_acc_traj(x0, xf, t0, tf, t):
@@ -72,7 +82,7 @@ def min_snap_traj(x0, xf, t0, tf, t):
 def callback(data):
 #    rospy.loginfo(rospy.get_caller_id() + '  x:%f, y:%f, z:%f', data ().pose.pose.position.x, data.pose.pose.position.y, data.pose.pose.position.z)
      global flag_land, flag_landed
-     global ctrl
+     global ctrl, pose_in
      global flag_initialize
      global t0, x0, y0, z0, xd, yd, zd, psid, wpt_idx, t_traj_start
 
@@ -84,13 +94,13 @@ def callback(data):
         z0 = data.pose.pose.position.z
 	flag_initialize = False
 
-#     rospy.loginfo('flag_initialize: %r', flag_initialize)
+     rospy.loginfo('waypt_idx: %f', wpt_idx)
      t = rospy.get_time() - t0
 	
-     if (wpt_idx+1<len(waypointx)):
-        xd = min_acc_traj(waypointx[wpt_idx], waypointx[wpt_idx+1], t_traj_start, waypoint_T[wpt_idx], t)
-        yd = min_acc_traj(waypointy[wpt_idx], waypointy[wpt_idx+1], t_traj_start, waypoint_T[wpt_idx], t)
-        zd = min_acc_traj(waypointz[wpt_idx], waypointz[wpt_idx+1], t_traj_start, waypoint_T[wpt_idx], t)
+     if (wpt_idx+1<len(waypointx) and t<t_traj_start+waypoint_T[wpt_idx]):
+        xd = min_acc_traj(waypointx[wpt_idx], waypointx[wpt_idx+1], t_traj_start, t_traj_start+waypoint_T[wpt_idx], t)
+        yd = min_acc_traj(waypointy[wpt_idx], waypointy[wpt_idx+1], t_traj_start, t_traj_start+waypoint_T[wpt_idx], t)
+        zd = min_acc_traj(waypointz[wpt_idx], waypointz[wpt_idx+1], t_traj_start, t_traj_start+waypoint_T[wpt_idx], t)
      else:
         xd = waypointx[wpt_idx]
         yd = waypointy[wpt_idx]
@@ -100,10 +110,13 @@ def callback(data):
 #            pub_l.publish()
 #            time.sleep(5.0)
 #            flag_landed==True
-
-     errx = K_surface * xd - data.pose.pose.position.x + x0
-     erry = K_surface * yd - data.pose.pose.position.y + y0
-     errz = K_surface * zd - data.pose.pose.position.z + z0
+	
+     x = data.pose.pose.position.x - x0
+     y = data.pose.pose.position.y - y0
+     z = data.pose.pose.position.z - z0
+     errx = K_surface * xd - x
+     erry = K_surface * yd - y
+     errz = K_surface * zd - z
      vx = data.twist.twist.linear.x
      vy = data.twist.twist.linear.y
      vz = data.twist.twist.linear.z
@@ -134,6 +147,59 @@ def callback(data):
      ctrl.linear.x = ux
      ctrl.linear.y = uy
      ctrl.linear.z = uz
+
+     pose_d_in.header.frame_id = "odom"
+     pose_d_in.child_frame_id = "base_link"
+     pose_d_in.header.stamp = rospy.get_rostime()
+     pose_d_in.pose.pose.position.x = xd
+     pose_d_in.pose.pose.position.y = yd
+     pose_d_in.pose.pose.position.z = zd
+     pose_d_in.twist.twist.linear.x = 0.0
+     pose_d_in.twist.twist.linear.y = 0.0
+     pose_d_in.twist.twist.linear.z = 0.0
+     pose_d_in.pose.pose.orientation.w = cos(0.5*psid)
+     pose_d_in.pose.pose.orientation.x = 0.0
+     pose_d_in.pose.pose.orientation.y = 0.0
+     pose_d_in.pose.pose.orientation.z = sin(0.5*psid)
+
+     pose_in.header.frame_id = "odom"
+     pose_in.child_frame_id = "base_link"
+     pose_in.header.stamp = rospy.get_rostime()
+     pose_in.pose.pose.position.x = x
+     pose_in.pose.pose.position.y = y
+     pose_in.pose.pose.position.z = z
+     pose_in.twist.twist.linear.x = vx
+     pose_in.twist.twist.linear.y = vy
+     pose_in.twist.twist.linear.z = vz
+     pose_in.pose.pose.orientation.w = q0
+     pose_in.pose.pose.orientation.x = q1 
+     pose_in.pose.pose.orientation.y = q2
+     pose_in.pose.pose.orientation.z = q3
+
+     # pose_d_in.header.frame_id = "odom"
+     # # pose_in.child_frame_id = "base_link"
+     # pose_d_in.header.stamp = rospy.get_rostime()
+     # pose_d_in.pose.position.x = xd
+     # pose_d_in.pose.position.y = yd
+     # pose_d_in.pose.position.z = zd
+     # pose_d_in.pose.orientation.w = cos(0.5*psid)
+     # pose_d_in.pose.orientation.x = 0.0
+     # pose_d_in.pose.orientation.y = 0.0
+     # pose_d_in.pose.orientation.z = sin(0.5*psid)
+
+     # pose_in.header.frame_id = "odom"
+     # # pose_in.child_frame_id = "base_link"
+     # pose_in.header.stamp = rospy.get_rostime()
+     # pose_in.position.x = x
+     # pose_in.position.y = y
+     # pose_in.position.z = z
+     # pose_in.orientation.w = q0
+     # pose_in.orientation.x = q1 
+     # pose_in.orientation.y = q2
+     # pose_in.orientation.z = q3
+
+     pub_pose_d_in.publish(pose_d_in)
+     pub_pose_in.publish(pose_in)
 
      if(flag_land==False):
      	pub.publish(ctrl)
