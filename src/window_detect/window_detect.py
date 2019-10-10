@@ -10,6 +10,7 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+cv_raw_image = np.zeros((480,640,3), np.uint8)
 raw_image = Image()
 pose_rel = Odometry()
 bin_image = Image()
@@ -18,14 +19,29 @@ debug_image = Image()
 bridge = CvBridge()
 
 def thresholding():
-	global raw_image, bin_image, debug_image, pose_rel
-	cv_raw_image = bridge.imgmsg_to_cv2(raw_image, desired_encoding="passthrough")
-	edges= cv2.Canny(cv_raw_image,100,200)
-	# plt.subplot(121),plt.imshow(imgage,cmap = 'gray')
-	# plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-	# plt.subplot(122),plt.imshow(edges,cmap = 'gray')
-	# plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
-	# plt.show()
+	global raw_image, bin_image, debug_image, pose_rel, cv_raw_image
+
+	try:
+		cv_raw_image = bridge.imgmsg_to_cv2(raw_image, "bgr8")
+	except CvBridgeError as e:
+		print(e)
+
+	b,g,r = cv2.split(cv_raw_image)
+	gray = cv2.cvtColor(cv_raw_image, cv2.COLOR_BGR2GRAY)
+
+	# thresholding
+	b_thres = cv2.adaptiveThreshold(b,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+	g_thres = cv2.adaptiveThreshold(g,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+	r_thres = cv2.adaptiveThreshold(r,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+	cv_thres_image = cv2.add(b_thres,g_thres,r_thres)
+
+	#edge
+	edges = cv2.Canny(gray,100,200)
+
+	bin_image = bridge.cv2_to_imgmsg(cv_thres_image, "8UC1")
+	# bin_image = bridge.cv2_to_imgmsg(edges, "8UC1")
+
+	# rospy.loginfo('%f',1.0)
 
 def corner_detection():
 	global raw_image, bin_image, debug_image, pose_rel
