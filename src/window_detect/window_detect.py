@@ -2,7 +2,7 @@
 
 import rospy, time, cv2
 import numpy as np
-from math import sin, cos, atan2, asin
+from math import sin, cos, atan2, asin, exp, sqrt
 from matplotlib import pyplot as plt
 from std_msgs.msg import String, Float64, Empty
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
@@ -59,10 +59,31 @@ def thresholding():
 	upper = (90, 255, 255) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
+	# ##with single G
+	# #yellow
+	# P_thres = 2
+
+	# frameb = np.zeros(shape=[height,width, 1], dtype=np.uint8)
+	# mu = np.array([ 0.0889, 0.4376, 0.7321])
+	# sigma = np.array([[0.0010, 0.0012, 0.0047],[0.0012, 0.0040, 0.0060],[0.0047, 0.0060, 0.0252]])
+	# sigma_inv = np.linalg.inv(sigma)
+	# DEN = ((2*3.14)**(3/2))*sqrt(np.linalg.det(sigma))
+	# for i in range(height):
+	#     for j in range(width):
+	#         x = frame[i][j]/255.0
+	#         v = -0.5*np.dot((x-mu),np.matmul(sigma_inv,(x-mu)))
+	#         NUM = exp(v)
+	#         P = NUM/DEN
+	#         if (P>P_thres):
+	#             frameb[i][j] = 1
+	#         else:
+	#             frameb[i][j] = 0
+	# frame = frameb
+
 	#Erosion/dilation
 	kernel = np.ones((2,2), np.uint8) 
 	frame = cv2.erode(frame, kernel, iterations=1)
-	kernel = np.ones((2,3), np.uint8) 
+	kernel = np.ones((3,3), np.uint8) 
 	frame = cv2.dilate(frame, kernel, iterations=1) 
 
 	bin_image = bridge.cv2_to_imgmsg(frame, "8UC1")
@@ -403,27 +424,27 @@ def main():
 	pub_pose_image = rospy.Publisher('/pose_image', Image, queue_size=10)
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 
-	# rospy.Subscriber('/cv_camera/image_raw', Image, callback)
+	rospy.Subscriber('/cv_camera/image_raw', Image, callback)
 	# rospy.Subscriber('/image_raw', Image, callback)
-	rospy.Subscriber('/image_raw_throttle', Image, callback)
+	# rospy.Subscriber('/image_raw_throttle', Image, callback)
 
-	rate = rospy.Rate(10)
+	rate = rospy.Rate(30)
 	while not rospy.is_shutdown():
-		try:
-			thresholding()
-			get_contour()
-			get_lines()
-			corners = corner_detection()
-			pose_solve(corners)
-			pose_display(corners)
-		except:
-			rospy.loginfo('Some error ocurred')
-		# thresholding()
-		# get_contour()
-		# get_lines()
-		# corners = corner_detection()
-		# pose_solve(corners)
-		# pose_display(corners)
+		# try:
+		# 	thresholding()
+		# 	get_contour()
+		# 	get_lines()
+		# 	corners = corner_detection()
+		# 	pose_solve(corners)
+		# 	pose_display(corners)
+		# except:
+		# 	rospy.loginfo('Some error ocurred')
+		thresholding()
+		get_contour()
+		get_lines()
+		corners = corner_detection()
+		pose_solve(corners)
+		pose_display(corners)
 		pub_bin_image.publish(bin_image)
 		pub_contour_image.publish(contour_image)
 		pub_line_image.publish(line_image)
