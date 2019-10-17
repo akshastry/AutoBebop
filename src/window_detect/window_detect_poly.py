@@ -17,7 +17,6 @@ img = np.zeros((480,640,3), np.uint8)
 raw_image = Image()
 bin_image = Image()
 contour_image = Image()
-line_image = Image()
 corner_image = Image()
 pose_image = Image()
 debug_image = Image()
@@ -44,8 +43,6 @@ def thresholding():
 	img = frame.copy()
 	img_orig = frame.copy()
 	blank_image = np.zeros(shape=[height, width, 3], dtype=np.uint8)
-	img_lines_bin = np.zeros(shape=[height, width, 1], dtype=np.uint8) 
-	img_corners = np.zeros(shape=[height, width, 1], dtype=np.uint8)
 
 	#Convert from BGR to HSV colorspace
 	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV);
@@ -88,9 +85,9 @@ def thresholding():
 
 	bin_image = bridge.cv2_to_imgmsg(frame, "8UC1")
 
-def get_contour():
-	global contour_image
-	global frame 
+def get_corners():
+	global contour_image, corner_image
+	global frame, img_centroids
 	global height, width
 
 	#Find contours and save only the biggest one
@@ -115,175 +112,39 @@ def get_contour():
 	frame = np.zeros(shape=[height,width, 1], dtype=np.uint8)
 
 	# rospy.loginfo('no of contours %f',len(contours))
-
+	corners = []
 	if (len(contours)>0):
-		# approximate the contour
-		# epsilon = 0.04*cv2.arcLength(contours[0],True)
-		# contours[0] = cv2.approxPolyDP(contours[0],epsilon,True)
-		# # convex_hull
-		# contours[0] = cv2.convexHull(contours[0])
-		# #approximate the contour
-		# epsilon = 0.04*cv2.arcLength(contours[0],True)
-		# contours[0] = cv2.approxPolyDP(contours[0],epsilon,True)
-		# if (len(contours[0])<5):
-		# 	# draw the contour
-		# 	frame = cv2.drawContours(frame, [contours[0]], 0, 255, thickness=1)
-		frame = cv2.drawContours(frame, [contours[0]], 0, 255, thickness=1)
-		#remove contour lines on borders
-		e=20 
-		v=0
-		cv2.line(img_corners, (0,0), (0,height), (v), e, cv2.LINE_AA)
-		cv2.line(img_corners, (0,0), (width,0), (v), e, cv2.LINE_AA)
-		cv2.line(img_corners, (width,0), (width,height), (v), e, cv2.LINE_AA)
-		cv2.line(img_corners, (0,height), (width,height), (v), e, cv2.LINE_AA)
+		# # approximate the contour
+		epsilon = 0.04*cv2.arcLength(contours[0],True)
+		contours[0] = cv2.approxPolyDP(contours[0],epsilon,True)
+		# convex_hull
+		contours[0] = cv2.convexHull(contours[0])
+		#approximate the contour
+		epsilon = 0.04*cv2.arcLength(contours[0],True)
+		contours[0] = cv2.approxPolyDP(contours[0],epsilon,True)
+		if (len(contours[0])<5):
+			# draw the contour
+			frame = cv2.drawContours(frame, [contours[0]], 0, 255, thickness=1)
 
-	contour_image = bridge.cv2_to_imgmsg(frame, "8UC1")
-
-def get_lines():
-	global line_image, debug_image
-	global frame, img_lines_bin, img
-
-	#Find lines on binary image     
-	lines = cv2.HoughLines(frame, 0.5, np.pi/180,  threshold=20)  #ADJUST   
-
-	# if lines is not None:
-		# rospy.loginfo('no of lines %f',len(lines))
-
-	#Draw lines on blank binary image
-	if lines is not None:
-	    for i in range(0, len(lines)):
-	        rho = lines[i][0][0]
-	        theta = lines[i][0][1]
-	        a = cos(theta)
-	        b = sin(theta)
-	        x0 = a * rho
-	        y0 = b * rho
-	        pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
-	        pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
-	        # cv2.line(img, pt1, pt2, (0,255,0), 1, cv2.LINE_AA)
-	        cv2.line(img_lines_bin, pt1, pt2, (255,255,255), 2, cv2.LINE_AA) 
-
-	# #Dilate lines image
-	kernel = np.ones((6,6), np.uint8)
-	img_lines_bin = cv2.dilate(img_lines_bin,kernel,iterations=1)
-
-	line_image = bridge.cv2_to_imgmsg(img_lines_bin, "8UC1")
-	# line_image = bridge.cv2_to_imgmsg(img, "8UC3")
-
-	# debug_image = bridge.cv2_to_imgmsg(img, "8UC3")
-
-
-def corner_detection():
-	global corner_image, debug_image
-	global img_lines_bin, img_corners, img_centroids
-	global height, width
-
-	#Corner detection
-	corners = cv2.cornerHarris(img_lines_bin,2,3,0.04)
-	img_corners[corners>0.1*corners.max()] = 255
-
-	#remove corners on borders
-	e=20
-	v=0
-	cv2.line(img_corners, (0,0), (0,height), (v), e, cv2.LINE_AA)
-	cv2.line(img_corners, (0,0), (width,0), (v), e, cv2.LINE_AA)
-	cv2.line(img_corners, (width,0), (width,height), (v), e, cv2.LINE_AA)
-	cv2.line(img_corners, (0,height), (width,height), (v), e, cv2.LINE_AA)
-
-	debug_image = bridge.cv2_to_imgmsg(img_corners, "8UC1")
-
-	#get the points
-	ret,img_corners = cv2.threshold(img_corners,128,255,cv2.THRESH_BINARY)
-	corners_values = np.nonzero(img_corners)
-
-	#HDB Clustering
-	if (len(corners_values[0])>1):
-	    X = corners_values[0]
-	    Y = corners_values[1]
-	    Z = np.array([X[0],Y[0]])
-	    for i in range(np.size(X)-1):
-	        Z = np.vstack((Z,np.array([X[i+1],Y[i+1]])))
-
-	    clusterer = hdbscan.HDBSCAN(min_cluster_size=6)
-	    cluster_labels = clusterer.fit_predict(Z)
-	    Zp = cluster_labels
-	    
-	    #If all =-1 assume Only one cluster 
-	    n_cluster = len(np.unique(Zp))
-	    if (n_cluster == 1):
-	        Zp = np.zeros(len(Zp))
-
-	    #remove -1 or unclustered point
-	    unclass_ind = []
-	    for i in range(len(Zp)):
-	        if(Zp[i] == -1):
-	            unclass_ind.append(i)
-
-	    Zp = np.delete(Zp,unclass_ind,0)
-	    X = np.delete(X,unclass_ind,0)
-	    Y = np.delete(Y,unclass_ind,0)
-	    
-	    n_cluster = len(np.unique(Zp))
-	    cluster_mean = np.zeros((n_cluster,2))
-	    
-	    for i in range(n_cluster):
-	        n_el = 0
-	        for j in range(len(Zp)):
-	            if (Zp[j] == i):
-	                n_el = n_el + 1
-	                cluster_mean[i,0] = cluster_mean[i,0] + Z[j,0]
-	                cluster_mean[i,1] = cluster_mean[i,1] + Z[j,1]
-
-	        cluster_mean[i,0] = cluster_mean[i,0] / n_el
-	        cluster_mean[i,1] = cluster_mean[i,1] / n_el
-	        
-	    cluster_avg_dist = np.zeros((n_cluster))
-	    cluster_var = np.zeros((n_cluster,2))
-	    
-	    for i in range(n_cluster):
-	        n_el = 0
-	        for j in range(len(Zp)):
-	            if (Zp[j] == i):
-	                n_el = n_el + 1                
-	                cluster_avg_dist[i] = cluster_avg_dist[i] +  (Z[j,0] - cluster_mean[i,0])**2 + (Z[j,0] - cluster_mean[i,0])**2
-	                cluster_var[i,0] = cluster_var[i,0] + (Z[j,0] - cluster_mean[i,0] )**2
-	                cluster_var[i,1] = cluster_var[i,1] + (Z[j,1] - cluster_mean[i,1] )**2
-	                
-	        cluster_avg_dist[i] = cluster_avg_dist[i] / n_el
-	        cluster_var[i,0] = cluster_var[i,0] / n_el
-	        cluster_var[i,1] = cluster_var[i,1] / n_el
-	        
-	    #sorting
-	    for i in range(4):
-	        for j in range(len(cluster_avg_dist)-1):
-	            if(cluster_avg_dist[j] < cluster_avg_dist[j+1]):
-	                temp = cluster_avg_dist[j]
-	                cluster_avg_dist[j] = cluster_avg_dist[j+1]
-	                cluster_avg_dist[j+1] = temp
-	                
-	                temp = cluster_mean[j,0]
-	                cluster_mean[j,0] = cluster_mean[j+1,0]
-	                cluster_mean[j+1,0] = temp
-	                
-	                temp = cluster_mean[j,1]
-	                cluster_mean[j,1] = cluster_mean[j+1,1]
-	                cluster_mean[j+1,1] = temp
-	    
-	    cluster_mean = cluster_mean[-4:,:]        
-	            
-	elif (len(corners_values[0])==1):
-		cluster_mean = corners_values
-	else:
-	    cluster_mean=[]
+			if (cv2.arcLength(contours[0], True)>50):
+				cluster_mean = contours[0]
+				for i in range(len(cluster_mean)):
+					e=5
+					if (cluster_mean[i][0][0]>e and cluster_mean[i][0][0]<width-e and cluster_mean[i][0][1]>e and cluster_mean[i][0][1]<height-e ):
+						corners.append([cluster_mean[i][0][1], cluster_mean[i][0][0]])
+	
+	corners = np.asarray(corners)
 
 	#Overlay final corners on original image
 	img_centroids = img_orig.copy()
-	for i in range(len(cluster_mean)):
-		center = (cluster_mean[i,1].astype(int),cluster_mean[i,0].astype(int))
+	for i in range(len(corners)):
+		center = (corners[i][1],corners[i][0])
 		cv2.circle(img_centroids, center, 2, [0,255,0], 5)
 
+	contour_image = bridge.cv2_to_imgmsg(frame, "8UC1")
 	corner_image = bridge.cv2_to_imgmsg(img_centroids, "8UC3")
-	return cluster_mean
+
+	return corners
 
 def pose_solve(cluster_mean):
 	global pose_rel
@@ -384,9 +245,10 @@ def quaternion_to_euler(w, x, y, z):
     return [roll, pitch, yaw]
 
 def pose_display(cluster_mean):
-	global img_centroids, pose_rel, pose_image
+	global img_orig, pose_rel, pose_image, img_centroids
 	global camera_matrix, dist_coeffs, image_points, model_points_yellow
 		#re-project line onto each corner to see 3D orientation found by solvePnP
+	# img_centroids = img_orig.copy()
 	if len(cluster_mean)>3: 
 		translation_pnp = np.array([pose_rel.pose.pose.position.x,pose_rel.pose.pose.position.y,pose_rel.pose.pose.position.z])
 		rotation_pnp = np.array(quaternion_to_euler(pose_rel.pose.pose.orientation.w, pose_rel.pose.pose.orientation.x, pose_rel.pose.pose.orientation.y, pose_rel.pose.pose.orientation.z))
@@ -425,7 +287,6 @@ def main():
 	pub_pose_rel = rospy.Publisher('/pose_rel', Odometry, queue_size=10)
 	pub_bin_image = rospy.Publisher('/bin_image', Image, queue_size=10)
 	pub_contour_image = rospy.Publisher('/contour_image', Image, queue_size=10)
-	pub_line_image = rospy.Publisher('/line_image', Image, queue_size=10)
 	pub_corner_image = rospy.Publisher('/corner_image', Image, queue_size=10)
 	pub_pose_image = rospy.Publisher('/pose_image', Image, queue_size=10)
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
@@ -436,24 +297,22 @@ def main():
 
 	rate = rospy.Rate(30)
 	while not rospy.is_shutdown():
+
 		try:
 			thresholding()
-			get_contour()
-			get_lines()
-			corners = corner_detection()
+			corners = get_corners()
 			pose_solve(corners)
 			pose_display(corners)
 		except:
 			rospy.loginfo('Some error ocurred')
+
 		# thresholding()
-		# get_contour()
-		# get_lines()
-		# corners = corner_detection()
+		# corners = get_corners()
 		# pose_solve(corners)
 		# pose_display(corners)
+
 		pub_bin_image.publish(bin_image)
 		pub_contour_image.publish(contour_image)
-		pub_line_image.publish(line_image)
 		pub_corner_image.publish(corner_image)
 		pub_pose_image.publish(pose_image)
 		pub_debug_image.publish(debug_image)
