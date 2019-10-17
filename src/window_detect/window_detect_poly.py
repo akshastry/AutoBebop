@@ -9,7 +9,6 @@ from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-import hdbscan
 
 pose_rel = Odometry()
 
@@ -52,8 +51,8 @@ def thresholding():
 	frame = cv2.GaussianBlur(frame,blur_params,cv2.BORDER_DEFAULT)
 
 	#yellow
-	lower = (0, 70, 40) #lower threshhold values (H, S, V)
-	upper = (90, 255, 255) #upper threshhold values (H, S, V)
+	lower = (20, 90, 70) #lower threshhold values (H, S, V)
+	upper = (30, 255, 255) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
 	# ##with single G
@@ -292,10 +291,10 @@ def main():
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 
 	# rospy.Subscriber('/cv_camera/image_raw', Image, callback)
-	# rospy.Subscriber('/image_raw', Image, callback)
-	rospy.Subscriber('/image_raw_throttle', Image, callback)
+	rospy.Subscriber('/image_raw', Image, callback)
+	# rospy.Subscriber('/image_raw_throttle', Image, callback)
 
-	rate = rospy.Rate(30)
+	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
 		try:
