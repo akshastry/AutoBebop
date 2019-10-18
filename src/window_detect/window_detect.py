@@ -431,10 +431,10 @@ def main():
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 
 	# rospy.Subscriber('/cv_camera/image_raw', Image, callback)
-	# rospy.Subscriber('/image_raw', Image, callback)
-	rospy.Subscriber('/image_raw_throttle', Image, callback)
+	rospy.Subscriber('/image_raw', Image, callback)
+	# rospy.Subscriber('/image_raw_throttle', Image, callback)
 
-	rate = rospy.Rate(30)
+	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 		try:
 			thresholding()
