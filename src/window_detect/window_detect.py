@@ -422,7 +422,7 @@ def main():
 	global raw_image, bin_image, debug_image, pose_rel
 	rospy.init_node('window_detect', anonymous=True)
 
-	pub_pose_rel = rospy.Publisher('/pose_rel', Odometry, queue_size=10)
+	pub_pose_rel = rospy.Publisher('/pose_rel_win', Odometry, queue_size=10)
 	pub_bin_image = rospy.Publisher('/bin_image', Image, queue_size=10)
 	pub_contour_image = rospy.Publisher('/contour_image', Image, queue_size=10)
 	pub_line_image = rospy.Publisher('/line_image', Image, queue_size=10)
