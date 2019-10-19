@@ -147,6 +147,7 @@ def get_corners():
 
 def pose_solve(cluster_mean):
 	global pose_rel, pub_pose_rel
+	global translation_pnp, rotation_pnp
 	global camera_matrix, dist_coeffs, image_points, model_points_yellow
 	if len(cluster_mean)>3:
 		#Order corner points clockwise from top left (origin) 
@@ -205,10 +206,17 @@ def pose_solve(cluster_mean):
 		#returns a rotation and translation matrix of the extrinsic matrix of the camera 
 		#i.e. rotation of the camera relative to fixed world origin (top left corner of window)
 
-		rospy.loginfo('roll %f \t pitch %f \t yaw %f', rotation_pnp[0], rotation_pnp[1], rotation_pnp[2])
-
 		if (abs(rotation_pnp[1])<0.4 and abs(rotation_pnp[2]-1.57)<0.4):
-			rotation_pnp_q = euler_to_quaternion(rotation_pnp[0],rotation_pnp[1],rotation_pnp[2])
+			
+			rotation_pnp_pub = rotation_pnp.copy()
+			if(rotation_pnp_pub[0]>0):
+				rotation_pnp_pub[0] = rotation_pnp_pub[0] - 3.14
+			elif(rotation_pnp_pub[0]<0):
+				rotation_pnp_pub[0] = rotation_pnp_pub[0] + 3.14
+
+			rospy.loginfo('roll %f \t pitch %f \t yaw %f', rotation_pnp_pub[0], rotation_pnp_pub[1], rotation_pnp_pub[2])
+
+			rotation_pnp_q = euler_to_quaternion(rotation_pnp_pub[0],rotation_pnp_pub[1],rotation_pnp_pub[2])
 			pose_rel.header.frame_id = "odom"
 			pose_rel.child_frame_id = "base_link"
 			pose_rel.header.stamp = rospy.get_rostime()
@@ -255,11 +263,12 @@ def quaternion_to_euler(w, x, y, z):
 def pose_display(cluster_mean):
 	global img_orig, pose_rel, pose_image, img_centroids
 	global camera_matrix, dist_coeffs, image_points, model_points_yellow
+	global translation_pnp, rotation_pnp
 		#re-project line onto each corner to see 3D orientation found by solvePnP
 	# img_centroids = img_orig.copy()
 	if (len(cluster_mean)>3): 
-		translation_pnp = np.array([pose_rel.pose.pose.position.x,pose_rel.pose.pose.position.y,pose_rel.pose.pose.position.z])
-		rotation_pnp = np.array(quaternion_to_euler(pose_rel.pose.pose.orientation.w, pose_rel.pose.pose.orientation.x, pose_rel.pose.pose.orientation.y, pose_rel.pose.pose.orientation.z))
+		# translation_pnp = np.array([pose_rel.pose.pose.position.x,pose_rel.pose.pose.position.y,pose_rel.pose.pose.position.z])
+		# rotation_pnp = np.array(quaternion_to_euler(pose_rel.pose.pose.orientation.w, pose_rel.pose.pose.orientation.x, pose_rel.pose.pose.orientation.y, pose_rel.pose.pose.orientation.z))
 		#project a line of length l_test on each corner corner NEED TO ORDER THE CLUSTER_MEAN ARRAY
 		l_test = .5
 		(gate_origin, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, l_test)]), rotation_pnp, translation_pnp, camera_matrix, dist_coeffs)
@@ -306,19 +315,20 @@ def main():
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
-		try:
-			thresholding()
-			corners = get_corners()
-			flag_publish = pose_solve(corners)
-			if (flag_publish):
-				pose_display(corners)
-		except:
-			rospy.loginfo('Some error ocurred')
+		# try:
+		# 	thresholding()
+		# 	corners = get_corners()
+		# 	flag_publish = pose_solve(corners)
+		# 	if (flag_publish):
+		# 		pose_display(corners)
+		# except:
+		# 	rospy.loginfo('Some error ocurred')
 
-		# thresholding()
-		# corners = get_corners()
-		# pose_solve(corners)
-		# pose_display(corners)
+		thresholding()
+		corners = get_corners()
+		flag_publish = pose_solve(corners)
+		if (flag_publish):
+			pose_display(corners)
 
 		pub_bin_image.publish(bin_image)
 		pub_contour_image.publish(contour_image)
