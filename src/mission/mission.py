@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy, time
-from math import atan2, sin, cos, sqrt
+from math import atan2, sin, cos, sqrt, asin, acos
 from std_msgs.msg import String, Float64, Empty
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
@@ -37,6 +37,7 @@ pose_d_in = Odometry()
 def waypoint_gen():
 	global pose_d_in
 	global t, t_search_start, t_search
+	global x_search, y_search
 	global phase
 	global flag_search_mode, flag_mission_window, flag_window_detected
 
@@ -57,15 +58,15 @@ def waypoint_gen():
 
 	if (flag_search_mode):
 		#search for the window
-		xd = x
-		yd = y
+		xd = x_search
+		yd = y_search
 
 		dt = 1/Hz
 		t_search = t - t_search_start
 		# rospy.loginfo('t_search %f', t_search)
 
 		Amplitude_z = 0.01*t_search
-		Amplitude_yaw = 0.01*t_search
+		Amplitude_yaw = 0.02*t_search
 
 		DEN = sqrt((Amplitude_z*sin(phase))**2 + (Amplitude_z*cos(phase))**2)
 		# rospy.loginfo('DEN %f', DEN)
@@ -152,6 +153,7 @@ def quaternion_to_euler(w, x, y, z):
 
 def main():
 	global t, t_search_start
+	global x ,y, x_search, y_search
 	global flag_search_mode, flag_mission_window, flag_window_detected
 
 	rospy.init_node('mission', anonymous=True)
@@ -167,11 +169,15 @@ def main():
 
 	rospy.Subscriber('/pose_rel_win_filtered', Odometry, window_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_feedback)
-
+	time.sleep(1.0)
 	rate = rospy.Rate(Hz) # 10hz
 
+	#search initialization step
 	t0 = rospy.get_time()
 	t_search_start = rospy.get_time() - t0
+	flag_search_mode = True
+	x_search = x
+	y_search = y
 	while not rospy.is_shutdown():
 		t = rospy.get_time() - t0
 		# try:
