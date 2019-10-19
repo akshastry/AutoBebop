@@ -177,11 +177,17 @@ def pose_solve(cluster_mean):
 									(corner_sort_x[2], corner_sort_y[2]),
 									(corner_sort_x[3], corner_sort_y[3]),
 								], dtype="double")
+		# model_points_yellow = np.array([ 
+		# 								(-0.5*0.84, -0.5*0.43, 0.0),    #TOP LEFT CORNER IS ORIGIN (x,y,z)
+		# 								(0.5*0.84, -0.5*0.43, 0.0),
+		# 								(0.81-0.5*84, 0.5*0.43, 0.0),
+		# 								(.03-0.5*84, 0.5*.43, 0.0),
+		# 								])
 		model_points_yellow = np.array([ 
 										(0.0, 0.0, 0.0),    #TOP LEFT CORNER IS ORIGIN (x,y,z)
 										(.84, 0.0, 0.0),
-										(.81, .43, 0.0),
-										(.03, .43, 0.0),
+										(.81, 0.43, 0.0),
+										(.03, 0.43, 0.0),
 										])
 
 	    #model_points_purple = np.array([
