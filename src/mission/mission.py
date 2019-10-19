@@ -77,7 +77,7 @@ def waypoint_gen():
 
 		zd = Amplitude_z*cos(phase)
 		yawd = Amplitude_yaw*sin(phase)
-		rospy.loginfo('zd %f \t yawd %f', zd, yawd)
+		rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 	pose_d_in.header.frame_id = "odom"
 	pose_d_in.child_frame_id = "base_link"

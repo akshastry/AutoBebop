@@ -51,7 +51,7 @@ def thresholding():
 	frame = cv2.GaussianBlur(frame,blur_params,cv2.BORDER_DEFAULT)
 
 	#yellow
-	lower = (0, 90, 70) #lower threshhold values (H, S, V)
+	lower = (0, 10, 20) #lower threshhold values (H, S, V)
 	upper = (90, 255, 255) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
@@ -79,7 +79,7 @@ def thresholding():
 	#Erosion/dilation
 	kernel = np.ones((2,2), np.uint8) 
 	frame = cv2.erode(frame, kernel, iterations=1)
-	kernel = np.ones((3,3), np.uint8) 
+	kernel = np.ones((4,4), np.uint8) 
 	frame = cv2.dilate(frame, kernel, iterations=1) 
 
 	bin_image = bridge.cv2_to_imgmsg(frame, "8UC1")
@@ -146,7 +146,7 @@ def get_corners():
 	return corners
 
 def pose_solve(cluster_mean):
-	global pose_rel
+	global pose_rel, pub_pose_rel
 	global camera_matrix, dist_coeffs, image_points, model_points_yellow
 	if len(cluster_mean)>3:
 		#Order corner points clockwise from top left (origin) 
@@ -203,21 +203,30 @@ def pose_solve(cluster_mean):
 
 		(success, rotation_pnp, translation_pnp) = cv2.solvePnP(model_points_yellow, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 		#returns a rotation and translation matrix of the extrinsic matrix of the camera 
-	    #i.e. rotation of the camera relative to fixed world origin (top left corner of window)
-		rotation_pnp_q = euler_to_quaternion(rotation_pnp[0],rotation_pnp[1],rotation_pnp[2])
-		pose_rel.header.frame_id = "odom"
-		pose_rel.child_frame_id = "base_link"
-		pose_rel.header.stamp = rospy.get_rostime()
-		pose_rel.pose.pose.position.x = translation_pnp[0]
-		pose_rel.pose.pose.position.y = translation_pnp[1]
-		pose_rel.pose.pose.position.z = translation_pnp[2]
-		pose_rel.twist.twist.linear.x = 0.0
-		pose_rel.twist.twist.linear.y = 0.0
-		pose_rel.twist.twist.linear.z = 0.0
-		pose_rel.pose.pose.orientation.w = rotation_pnp_q[0]
-		pose_rel.pose.pose.orientation.x = rotation_pnp_q[1]
-		pose_rel.pose.pose.orientation.y = rotation_pnp_q[2]
-		pose_rel.pose.pose.orientation.z = rotation_pnp_q[3]
+		#i.e. rotation of the camera relative to fixed world origin (top left corner of window)
+
+		rospy.loginfo('roll %f \t pitch %f \t yaw %f', rotation_pnp[0], rotation_pnp[1], rotation_pnp[2])
+
+		if (abs(rotation_pnp[1])<0.4 and abs(rotation_pnp[2]-1.57)<0.4):
+			rotation_pnp_q = euler_to_quaternion(rotation_pnp[0],rotation_pnp[1],rotation_pnp[2])
+			pose_rel.header.frame_id = "odom"
+			pose_rel.child_frame_id = "base_link"
+			pose_rel.header.stamp = rospy.get_rostime()
+			pose_rel.pose.pose.position.x = translation_pnp[0]
+			pose_rel.pose.pose.position.y = translation_pnp[1]
+			pose_rel.pose.pose.position.z = translation_pnp[2]
+			pose_rel.twist.twist.linear.x = 0.0
+			pose_rel.twist.twist.linear.y = 0.0
+			pose_rel.twist.twist.linear.z = 0.0
+			pose_rel.pose.pose.orientation.w = rotation_pnp_q[0]
+			pose_rel.pose.pose.orientation.x = rotation_pnp_q[1]
+			pose_rel.pose.pose.orientation.y = rotation_pnp_q[2]
+			pose_rel.pose.pose.orientation.z = rotation_pnp_q[3]
+			pub_pose_rel.publish(pose_rel)
+
+			return True
+	else:
+		return False
 
 def euler_to_quaternion(roll, pitch, yaw):
 
@@ -248,7 +257,7 @@ def pose_display(cluster_mean):
 	global camera_matrix, dist_coeffs, image_points, model_points_yellow
 		#re-project line onto each corner to see 3D orientation found by solvePnP
 	# img_centroids = img_orig.copy()
-	if len(cluster_mean)>3: 
+	if (len(cluster_mean)>3): 
 		translation_pnp = np.array([pose_rel.pose.pose.position.x,pose_rel.pose.pose.position.y,pose_rel.pose.pose.position.z])
 		rotation_pnp = np.array(quaternion_to_euler(pose_rel.pose.pose.orientation.w, pose_rel.pose.pose.orientation.x, pose_rel.pose.pose.orientation.y, pose_rel.pose.pose.orientation.z))
 		#project a line of length l_test on each corner corner NEED TO ORDER THE CLUSTER_MEAN ARRAY
@@ -280,7 +289,7 @@ def callback(image):
 	raw_image = image
 
 def main():
-	global raw_image, bin_image, debug_image, pose_rel
+	global raw_image, bin_image, debug_image, pose_rel, pub_pose_rel
 	rospy.init_node('window_detect', anonymous=True)
 
 	pub_pose_rel = rospy.Publisher('/pose_rel_win', Odometry, queue_size=10)
@@ -300,8 +309,9 @@ def main():
 		try:
 			thresholding()
 			corners = get_corners()
-			pose_solve(corners)
-			pose_display(corners)
+			flag_publish = pose_solve(corners)
+			if (flag_publish):
+				pose_display(corners)
 		except:
 			rospy.loginfo('Some error ocurred')
 
@@ -315,7 +325,6 @@ def main():
 		pub_corner_image.publish(corner_image)
 		pub_pose_image.publish(pose_image)
 		pub_debug_image.publish(debug_image)
-		pub_pose_rel.publish(pose_rel)
 		rate.sleep()
 
 if __name__ == '__main__':
