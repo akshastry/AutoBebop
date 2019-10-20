@@ -18,6 +18,7 @@ t = t_search = t_search_start = t_window_detect = 0.0
 phase = 0.0
 
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
+xd = yd = zd = yawd = 0.0
 x_obj = y_obj = z_obj = 0.0
 roll_obj = pitch_obj = yaw_obj = 0.0
 xd = 0.0
@@ -33,6 +34,8 @@ vel = 0.1
 
 pose_in = Odometry()
 pose_d_in = Odometry()
+pose_win_in = Odometry()
+pose_win_b = Odometry()
 
 def waypoint_gen():
 	global pose_d_in
@@ -40,6 +43,7 @@ def waypoint_gen():
 	global x_search, y_search
 	global phase
 	global flag_search_mode, flag_mission_window, flag_window_detected
+	global xd, yd, zd, yawd
 
 	if (flag_mission_window):
 		if (flag_window_detected):
@@ -93,8 +97,38 @@ def waypoint_gen():
 	pose_d_in.pose.pose.orientation.y = 0.0
 	pose_d_in.pose.pose.orientation.z = sin(0.5*yawd)
 
+# # if window position is in inertial frame
+# def window_feedback(data):
+# 	global x_obj, y_obj ,z_obj, roll_obj, pitch_obj, yaw_obj
+# 	global flag_window_detected, flag_window_detected_first, flag_mission_window, flag_search_mode
+# 	global t, t_window_detect
+
+# 	flag_window_detected = True
+# 	t_window_detect = t
+
+# 	#Starting the window mission on first detection of the window
+# 	if (flag_window_detected_first == False):
+# 		flag_window_detected_first == True
+# 		flag_mission_window = True
+# 		flag_search_mode = False
+
+# 	if (flag_mission_window):
+# 		x_obj = data.pose.pose.position.x + x
+# 		y_obj = data.pose.pose.position.y + y
+# 		z_obj = data.pose.pose.position.z + z
+
+# 		q0 = data.pose.pose.orientation.w
+# 		q1 = data.pose.pose.orientation.x
+# 		q2 = data.pose.pose.orientation.y
+# 		q3 = data.pose.pose.orientation.z
+# 		roll_obj, pitch_obj, yaw_obj = quaternion_to_euler(q0, q1, q2, q3)
+
+# 		yaw_obj = yaw_obj + yaw
+
+# if window relative position and orientation are in camera/body frame
 def window_feedback(data):
-	global x_obj, y_obj ,z_obj, roll_obj, pitch_obj, yaw_obj
+	global pose_win_in, pose_win_b
+	global x_obj, y_obj ,z_obj, roll_obj, pitch_obj, yaw_obj, yaw
 	global flag_window_detected, flag_window_detected_first, flag_mission_window, flag_search_mode
 	global t, t_window_detect
 
@@ -108,17 +142,60 @@ def window_feedback(data):
 		flag_search_mode = False
 
 	if (flag_mission_window):
-		x_obj = data.pose.pose.position.x + x
-		y_obj = data.pose.pose.position.y + y
-		z_obj = data.pose.pose.position.z + z
 
 		q0 = data.pose.pose.orientation.w
 		q1 = data.pose.pose.orientation.x
 		q2 = data.pose.pose.orientation.y
 		q3 = data.pose.pose.orientation.z
-		roll_obj, pitch_obj, yaw_obj = quaternion_to_euler(q0, q1, q2, q3)
+		_,yaw_obj_rel,_ = quaternion_to_euler(q0, q1, q2, q3)
 
-		yaw_obj = yaw_obj + yaw
+		x_obj_rel_c = data.pose.pose.position.x
+		y_obj_rel_c = data.pose.pose.position.y
+		z_obj_rel_c = data.pose.pose.position.z
+
+		x_obj_rel_b = z_obj_rel_c
+		y_obj_rel_b = -x_obj_rel_c
+		z_obj_rel_b = -y_obj_rel_c
+
+		x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
+		y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
+		z_obj_rel_in = z_obj_rel_b
+
+		x_obj = x + x_obj_rel_in
+		y_obj = y + y_obj_rel_in
+		z_obj = z + z_obj_rel_in
+
+		yaw_obj = yaw - yaw_obj_rel
+
+		pose_win_in.header.frame_id = "odom"
+		pose_win_in.child_frame_id = "base_link"
+		pose_win_in.header.stamp = rospy.get_rostime()
+		pose_win_in.pose.pose.position.x = x_obj
+		pose_win_in.pose.pose.position.y = y_obj
+		pose_win_in.pose.pose.position.z = z_obj
+		pose_win_in.twist.twist.linear.x = 0.0
+		pose_win_in.twist.twist.linear.y = 0.0
+		pose_win_in.twist.twist.linear.z = 0.0
+		pose_win_in.pose.pose.orientation.w = cos(0.5*yaw_obj)
+		pose_win_in.pose.pose.orientation.x = 0.0
+		pose_win_in.pose.pose.orientation.y = 0.0
+		pose_win_in.pose.pose.orientation.z = sin(0.5*yaw_obj)
+
+		pose_win_b.header.frame_id = "odom"
+		pose_win_b.child_frame_id = "base_link"
+		pose_win_b.header.stamp = rospy.get_rostime()
+		pose_win_b.pose.pose.position.x = -x_obj_rel_b
+		pose_win_b.pose.pose.position.y = -y_obj_rel_b
+		pose_win_b.pose.pose.position.z = -z_obj_rel_b
+		pose_win_b.twist.twist.linear.x = 0.0
+		pose_win_b.twist.twist.linear.y = 0.0
+		pose_win_b.twist.twist.linear.z = 0.0
+		pose_win_b.pose.pose.orientation.w = cos(0.5*yaw)
+		pose_win_b.pose.pose.orientation.x = 0.0
+		pose_win_b.pose.pose.orientation.y = 0.0
+		pose_win_b.pose.pose.orientation.z = sin(0.5*yaw)
+
+		rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj, y_obj, z_obj, yaw_obj)
 
 def quad_feedback(data):
 	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
@@ -155,10 +232,13 @@ def main():
 	global t, t_search_start
 	global x ,y, x_search, y_search
 	global flag_search_mode, flag_mission_window, flag_window_detected
+	global pose_d_in, pose_win_in, pose_win_b
 
 	rospy.init_node('mission', anonymous=True)
 
-	pub_pose_d_in = rospy.Publisher('/pose_d_in', Odometry, queue_size=1)
+	pub_pose_d_in = rospy.Publisher('/pose_d_in_mission', Odometry, queue_size=1)
+	pub_pose_win_in = rospy.Publisher('/pose_win_in', Odometry, queue_size=1)
+	pub_pose_win_b = rospy.Publisher('/pose_win_b', Odometry, queue_size=1)
 	pub_to = rospy.Publisher('/bebop/takeoff', Empty, queue_size=1)
 	pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1)
 
@@ -167,7 +247,8 @@ def main():
 	# pub_to.publish()
 	# time.sleep(5.0)
 
-	rospy.Subscriber('/pose_rel_win_filtered', Odometry, window_feedback)
+	# rospy.Subscriber('/pose_rel_win_filtered', Odometry, window_feedback)
+	rospy.Subscriber('/pose_rel_win', Odometry, window_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_feedback)
 	time.sleep(1.0)
 	rate = rospy.Rate(Hz) # 10hz
@@ -189,6 +270,8 @@ def main():
 		flag_window_detected = False
 
 		pub_pose_d_in.publish(pose_d_in)
+		pub_pose_win_in.publish(pose_win_in)
+		pub_pose_win_b.publish(pose_win_b)
 		
 		rate.sleep()
 
