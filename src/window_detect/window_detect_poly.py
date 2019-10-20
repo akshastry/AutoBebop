@@ -195,8 +195,8 @@ def pose_solve(cluster_mean):
 
 		focal_length_x = 743.595409 #get from camera calibration
 		focal_length_y = 750.175831 #get from camera calibration
-		size = frame.shape
-		center = (size[1]/2, size[0]/2)
+		# size = frame.shape
+		# center = (size[1]/2, size[0]/2)
 		center = scale*(357.244818, 192.270976)
 		camera_matrix = np.array(
 								[[focal_length_x, 0, center[0]],
