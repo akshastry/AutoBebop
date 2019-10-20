@@ -127,7 +127,65 @@ def waypoint_gen():
 
 # if window relative position and orientation are in camera/body frame
 def window_feedback(data):
-	global pose_win_in, pose_win_b
+	global pose_win_in, pose_win_b, pub_pose_win_in
+
+	q0 = data.pose.pose.orientation.w
+	q1 = data.pose.pose.orientation.x
+	q2 = data.pose.pose.orientation.y
+	q3 = data.pose.pose.orientation.z
+	_,yaw_obj_rel,_ = quaternion_to_euler(q0, q1, q2, q3)
+
+	x_obj_rel_c = data.pose.pose.position.x
+	y_obj_rel_c = data.pose.pose.position.y
+	z_obj_rel_c = data.pose.pose.position.z
+
+	x_obj_rel_b = z_obj_rel_c
+	y_obj_rel_b = -x_obj_rel_c
+	z_obj_rel_b = -y_obj_rel_c
+
+	x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
+	y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
+	z_obj_rel_in = z_obj_rel_b
+
+	x_obj = x + x_obj_rel_in
+	y_obj = y + y_obj_rel_in
+	z_obj = z + z_obj_rel_in
+
+	yaw_obj = yaw - yaw_obj_rel
+
+	pose_win_in.header.frame_id = "odom"
+	pose_win_in.child_frame_id = "base_link"
+	pose_win_in.header.stamp = rospy.get_rostime()
+	pose_win_in.pose.pose.position.x = x_obj
+	pose_win_in.pose.pose.position.y = y_obj
+	pose_win_in.pose.pose.position.z = z_obj
+	pose_win_in.twist.twist.linear.x = 0.0
+	pose_win_in.twist.twist.linear.y = 0.0
+	pose_win_in.twist.twist.linear.z = 0.0
+	pose_win_in.pose.pose.orientation.w = cos(0.5*yaw_obj)
+	pose_win_in.pose.pose.orientation.x = 0.0
+	pose_win_in.pose.pose.orientation.y = 0.0
+	pose_win_in.pose.pose.orientation.z = sin(0.5*yaw_obj)
+
+	pub_pose_win_in.publish(pose_win_in)
+
+	pose_win_b.header.frame_id = "odom"
+	pose_win_b.child_frame_id = "base_link"
+	pose_win_b.header.stamp = rospy.get_rostime()
+	pose_win_b.pose.pose.position.x = -x_obj_rel_b
+	pose_win_b.pose.pose.position.y = -y_obj_rel_b
+	pose_win_b.pose.pose.position.z = -z_obj_rel_b
+	pose_win_b.twist.twist.linear.x = 0.0
+	pose_win_b.twist.twist.linear.y = 0.0
+	pose_win_b.twist.twist.linear.z = 0.0
+	pose_win_b.pose.pose.orientation.w = cos(0.5*yaw)
+	pose_win_b.pose.pose.orientation.x = 0.0
+	pose_win_b.pose.pose.orientation.y = 0.0
+	pose_win_b.pose.pose.orientation.z = sin(0.5*yaw)
+
+	rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj, y_obj, z_obj, yaw_obj)
+
+def window_feedback_filtered(data):
 	global x_obj, y_obj ,z_obj, roll_obj, pitch_obj, yaw_obj, yaw
 	global flag_window_detected, flag_window_detected_first, flag_mission_window, flag_search_mode
 	global t, t_window_detect
@@ -142,60 +200,19 @@ def window_feedback(data):
 		flag_search_mode = False
 
 	if (flag_mission_window):
+		x_obj = data.pose.pose.position.x
+		y_obj = data.pose.pose.position.y
+		z_obj = data.pose.pose.position.z
+		vx_obj = data.twist.twist.linear.x
+		vy_obj = data.twist.twist.linear.y
+		vz_obj = data.twist.twist.linear.z
 
 		q0 = data.pose.pose.orientation.w
 		q1 = data.pose.pose.orientation.x
 		q2 = data.pose.pose.orientation.y
 		q3 = data.pose.pose.orientation.z
-		_,yaw_obj_rel,_ = quaternion_to_euler(q0, q1, q2, q3)
+		roll_obj, pitch_obj, yaw_obj = quaternion_to_euler(q0, q1, q2, q3)
 
-		x_obj_rel_c = data.pose.pose.position.x
-		y_obj_rel_c = data.pose.pose.position.y
-		z_obj_rel_c = data.pose.pose.position.z
-
-		x_obj_rel_b = z_obj_rel_c
-		y_obj_rel_b = -x_obj_rel_c
-		z_obj_rel_b = -y_obj_rel_c
-
-		x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
-		y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
-		z_obj_rel_in = z_obj_rel_b
-
-		x_obj = x + x_obj_rel_in
-		y_obj = y + y_obj_rel_in
-		z_obj = z + z_obj_rel_in
-
-		yaw_obj = yaw - yaw_obj_rel
-
-		pose_win_in.header.frame_id = "odom"
-		pose_win_in.child_frame_id = "base_link"
-		pose_win_in.header.stamp = rospy.get_rostime()
-		pose_win_in.pose.pose.position.x = x_obj
-		pose_win_in.pose.pose.position.y = y_obj
-		pose_win_in.pose.pose.position.z = z_obj
-		pose_win_in.twist.twist.linear.x = 0.0
-		pose_win_in.twist.twist.linear.y = 0.0
-		pose_win_in.twist.twist.linear.z = 0.0
-		pose_win_in.pose.pose.orientation.w = cos(0.5*yaw_obj)
-		pose_win_in.pose.pose.orientation.x = 0.0
-		pose_win_in.pose.pose.orientation.y = 0.0
-		pose_win_in.pose.pose.orientation.z = sin(0.5*yaw_obj)
-
-		pose_win_b.header.frame_id = "odom"
-		pose_win_b.child_frame_id = "base_link"
-		pose_win_b.header.stamp = rospy.get_rostime()
-		pose_win_b.pose.pose.position.x = -x_obj_rel_b
-		pose_win_b.pose.pose.position.y = -y_obj_rel_b
-		pose_win_b.pose.pose.position.z = -z_obj_rel_b
-		pose_win_b.twist.twist.linear.x = 0.0
-		pose_win_b.twist.twist.linear.y = 0.0
-		pose_win_b.twist.twist.linear.z = 0.0
-		pose_win_b.pose.pose.orientation.w = cos(0.5*yaw)
-		pose_win_b.pose.pose.orientation.x = 0.0
-		pose_win_b.pose.pose.orientation.y = 0.0
-		pose_win_b.pose.pose.orientation.z = sin(0.5*yaw)
-
-		rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj, y_obj, z_obj, yaw_obj)
 
 def quad_feedback(data):
 	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
@@ -228,6 +245,8 @@ def quaternion_to_euler(w, x, y, z):
 	# return [yaw, pitch, roll]
 	return [roll, pitch, yaw]
 
+pub_pose_win_in = rospy.Publisher('/pose_win_in', Odometry, queue_size=10)
+
 def main():
 	global t, t_search_start
 	global x ,y, x_search, y_search
@@ -237,7 +256,6 @@ def main():
 	rospy.init_node('mission', anonymous=True)
 
 	pub_pose_d_in = rospy.Publisher('/pose_d_in_mission', Odometry, queue_size=1)
-	pub_pose_win_in = rospy.Publisher('/pose_win_in', Odometry, queue_size=1)
 	pub_pose_win_b = rospy.Publisher('/pose_win_b', Odometry, queue_size=1)
 	pub_to = rospy.Publisher('/bebop/takeoff', Empty, queue_size=1)
 	pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1)
@@ -247,7 +265,7 @@ def main():
 	# pub_to.publish()
 	# time.sleep(5.0)
 
-	# rospy.Subscriber('/pose_rel_win_filtered', Odometry, window_feedback)
+	rospy.Subscriber('/pose_win_in_filtered', Odometry, window_feedback_filtered)
 	rospy.Subscriber('/pose_rel_win', Odometry, window_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_feedback)
 	time.sleep(1.0)
@@ -270,7 +288,6 @@ def main():
 		flag_window_detected = False
 
 		pub_pose_d_in.publish(pose_d_in)
-		pub_pose_win_in.publish(pose_win_in)
 		pub_pose_win_b.publish(pose_win_b)
 		
 		rate.sleep()

@@ -43,10 +43,10 @@ X_k = np.zeros(4)
 
 # Covariances
 Q = np.zeros((4,4))
-Q[0,0] = 10**(-5)
-Q[1,1] = 10**(-5)
-Q[2,2] = 10**(-5)
-Q[3,3] = 10**(-5)
+Q[0,0] = 10**(-7)
+Q[1,1] = 10**(-7)
+Q[2,2] = 10**(-7)
+Q[3,3] = 10**(-7)
 
 R = np.zeros((4,4))
 R[0,0] = 10**(-3)
@@ -139,6 +139,7 @@ def main():
 		pose_EKF.pose.pose.orientation.x = q1 
 		pose_EKF.pose.pose.orientation.y = q2
 		pose_EKF.pose.pose.orientation.z = q3
+		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,P[3,3]])
 		pub.publish(pose_EKF)
 
 		rate.sleep()
