@@ -67,6 +67,8 @@ def quaternion_to_euler(w, x, y, z):
 x_prev = 0.0
 y_prev = 0.0
 z_prev = 0.0
+psi_qI = 0.0
+X_qI = np.array([0.0,0.0,0.0])
 
 # rotation matrix from quad to camera frame
 R_CQ = np.zeros((3,3))
@@ -127,13 +129,12 @@ def EKF_update(Z_k):
 	S = np.matmul(H, np.matmul(P, np.transpose(H))) + R
 	K = np.matmul(P, np.matmul(np.transpose(H), np.linalg.inv(S)))
 
-	X_k1 = X_k1 + np.transpose(np.matmul(K, np.reshape(y_tilda, (-1, 1))))[0]
+	X_k = X_k + np.transpose(np.matmul(K, np.reshape(y_tilda, (-1, 1))))[0]
 	P = np.matmul(np.eye(4) - np.matmul(K,H), P)
 
-	X_k = X_k1
 
 def odom_callback(data):
-	global x_prev, y_prev, z_prev
+	global x_prev, y_prev, z_prev, psi_qI
 	x = data.pose.pose.position.x
 	y = data.pose.pose.position.y
 	z = data.pose.pose.position.z
@@ -154,6 +155,8 @@ def odom_callback(data):
 	x_prev = x
 	y_prev = y
 	z_prev = z
+	psi_qI = yaw
+	X_qI = np.array([x,y,z])
 
 def win_callback(data):
 	x = data.pose.pose.position.x
@@ -165,12 +168,13 @@ def win_callback(data):
 	q3 = data.pose.pose.orientation.z
 	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
 
-	Z_k = np.array([x, y, z, roll])
+	Z_k = np.array([x, -y, -z, roll])
 
 	EKF_update(Z_k)
 
 
 def main():
+	global psi_qI
 
 	rospy.init_node('EKF', anonymous=True)
 
@@ -195,15 +199,23 @@ def main():
 		# except:
 		# 	rospy.loginfo('Some error ocurred')
 
-		q0, q1, q2, q3 = euler_to_quaternion(0, 0, X_k[3])
+		R_CW = np.transpose(R_WC(X_k[3]))
+		R_QC = np.transpose(R_CQ)
+		R_IQ = np.transpose(R_QI(psi_qI))
+
+		R_k = np.matmul(np.matmul(R_IQ, R_QC), R_CW)
+
+		X = np.transpose(np.matmul(R_k, np.reshape(-X_k[0:3] + X_qI, (-1, 1))))[0]
+
+		q0, q1, q2, q3 = euler_to_quaternion(0, 0, -X_k[3] + psi_qI)
 
 		pose_EKF = Odometry()
 		pose_EKF.header.frame_id = "odom"
 		pose_EKF.child_frame_id = "base_link"
 		pose_EKF.header.stamp = rospy.get_rostime()
-		pose_EKF.pose.pose.position.x = X_k[0]
-		pose_EKF.pose.pose.position.y = X_k[1]
-		pose_EKF.pose.pose.position.z = X_k[2]
+		pose_EKF.pose.pose.position.x = X[0]
+		pose_EKF.pose.pose.position.y = X[1]
+		pose_EKF.pose.pose.position.z = X[2]
 		pose_EKF.twist.twist.linear.x = 0
 		pose_EKF.twist.twist.linear.y = 0
 		pose_EKF.twist.twist.linear.z = 0
@@ -212,6 +224,8 @@ def main():
 		pose_EKF.pose.pose.orientation.y = q2
 		pose_EKF.pose.pose.orientation.z = q3
 		pub.publish(pose_EKF)
+
+		
 
 
 	# 	control()
