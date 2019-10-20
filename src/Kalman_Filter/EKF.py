@@ -123,7 +123,7 @@ def main():
 
 	rospy.init_node('EKF', anonymous=True)
 
-	pub = rospy.Publisher('/EKF_X', Odometry, queue_size=1)
+	pub = rospy.Publisher('/pose_rel_win_filtered', Odometry, queue_size=1)
 
 	# # takeoff
 	# time.sleep(2.0)
@@ -135,14 +135,33 @@ def main():
 
 	# time.sleep(1.0)
 
-	rate = rospy.Rate(10) # 10hz
+	rate = rospy.Rate(5) # 10hz
 
-	# while not rospy.is_shutdown():
-	# 	t = rospy.get_time() - t0
-	# 	# try:
-	# 	# 	control()
-	# 	# except:
-	# 	# 	rospy.loginfo('Some error ocurred')
+	while not rospy.is_shutdown():
+		# t = rospy.get_time() - t0
+		# try:
+		# 	control()
+		# except:
+		# 	rospy.loginfo('Some error ocurred')
+
+		q0, q1, q2, q3 = euler_to_quaternion(0, 0, X_k[3])
+
+		pose_EKF = Odometry()
+		pose_EKF.header.frame_id = "pose_rel_win_filtered"
+		pose_EKF.child_frame_id = "base_link"
+		pose_EKF.header.stamp = rospy.get_rostime()
+		pose_EKF.pose.pose.position.x = X_k[0]
+		pose_EKF.pose.pose.position.y = X_k[1]
+		pose_EKF.pose.pose.position.z = X_k[2]
+		pose_EKF.twist.twist.linear.x = 0
+		pose_EKF.twist.twist.linear.y = 0
+		pose_EKF.twist.twist.linear.z = 0
+		pose_EKF.pose.pose.orientation.w = q0
+		pose_EKF.pose.pose.orientation.x = q1 
+		pose_EKF.pose.pose.orientation.y = q2
+		pose_EKF.pose.pose.orientation.z = q3
+		pub.publish(pose_EKF)
+
 
 	# 	control()
 
@@ -152,6 +171,15 @@ def main():
 	# 		pub.publish(ctrl)
 		
 	# 	rate.sleep()
+
+def euler_to_quaternion(roll, pitch, yaw):
+
+		qw = cos(roll/2) * cos(pitch/2) * cos(yaw/2) + sin(roll/2) * sin(pitch/2) * sin(yaw/2)
+		qx = sin(roll/2) * cos(pitch/2) * cos(yaw/2) - cos(roll/2) * sin(pitch/2) * sin(yaw/2)
+		qy = cos(roll/2) * sin(pitch/2) * cos(yaw/2) + sin(roll/2) * cos(pitch/2) * sin(yaw/2)
+		qz = cos(roll/2) * cos(pitch/2) * sin(yaw/2) - sin(roll/2) * sin(pitch/2) * cos(yaw/2)
+
+		return [qw, qx, qy, qz]
 
 
 def quaternion_to_euler(w, x, y, z):
