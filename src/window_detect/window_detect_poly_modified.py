@@ -25,7 +25,7 @@ bridge = CvBridge()
 def thresholding():
 	global raw_image, bin_image
 	global img, frame, img_orig, blank_image, img_lines_bin, img_corners
-	global height, width, scale
+	global height, width
 
 	try:
 		img = bridge.imgmsg_to_cv2(raw_image, "bgr8")
@@ -149,8 +149,6 @@ def pose_solve(cluster_mean):
 	global pose_rel, pub_pose_rel
 	global translation_pnp, rotation_pnp
 	global camera_matrix, dist_coeffs, image_points, model_points_yellow
-	global scale
-
 	if len(cluster_mean)>3:
 		#Order corner points clockwise from top left (origin) 
 		#first sort in ascending y values
@@ -179,11 +177,17 @@ def pose_solve(cluster_mean):
 									(corner_sort_x[2], corner_sort_y[2]),
 									(corner_sort_x[3], corner_sort_y[3]),
 								], dtype="double")
+		# model_points_yellow = np.array([ 
+		# 								(-0.5*0.84, -0.5*0.43, 0.0),    #TOP LEFT CORNER IS ORIGIN (x,y,z)
+		# 								(0.5*0.84, -0.5*0.43, 0.0),
+		# 								(0.81-0.5*84, 0.5*0.43, 0.0),
+		# 								(.03-0.5*84, 0.5*.43, 0.0),
+		# 								])
 		model_points_yellow = np.array([ 
 										(0.0, 0.0, 0.0),    #TOP LEFT CORNER IS ORIGIN (x,y,z)
 										(.84, 0.0, 0.0),
-										(.81, -.43, 0.0),
-										(.03, -.43, 0.0),
+										(.81, 0.43, 0.0),
+										(.03, 0.43, 0.0),
 										])
 
 	    #model_points_purple = np.array([
@@ -193,29 +197,28 @@ def pose_solve(cluster_mean):
 	    #                                (0,0,.43),
 	    #                        ])
 
-		focal_length_x = 743.595409 #get from camera calibration
-		focal_length_y = 750.175831 #get from camera calibration
+		focal_length_x = 706.219794 #get from camera calibration
+		focal_length_y = 709.519037 #get from camera calibration
 		size = frame.shape
 		center = (size[1]/2, size[0]/2)
-		center = scale*(357.244818, 192.270976)
 		camera_matrix = np.array(
 								[[focal_length_x, 0, center[0]],
 								[0, focal_length_y, center[1]],
 								[0, 0, 1]], dtype = "double"
 								)
-		dist_coeffs = np.array([-0.337798, 0.142319, 0.001475, 0.003604, 0.0]) #get from camera calibration
+		dist_coeffs = np.array([-0.336810, 0.116976, -0.004822, -0.002968, 0.0]) #get from camera calibration
 
 		(success, rotation_pnp, translation_pnp) = cv2.solvePnP(model_points_yellow, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 		#returns a rotation and translation matrix of the extrinsic matrix of the camera 
 		#i.e. rotation of the camera relative to fixed world origin (top left corner of window)
 
-		if (abs(rotation_pnp[1])<0.4 and abs(rotation_pnp[2]-1.57)<0.4):
+		if (abs(rotation_pnp[0])<0.4 and abs(rotation_pnp[2])<0.4):
 			
 			rotation_pnp_pub = rotation_pnp.copy()
-			if(rotation_pnp_pub[0]>0):
-				rotation_pnp_pub[0] = rotation_pnp_pub[0] - 3.14
-			elif(rotation_pnp_pub[0]<0):
-				rotation_pnp_pub[0] = rotation_pnp_pub[0] + 3.14
+			# if(rotation_pnp_pub[0]>0):
+			# 	rotation_pnp_pub[0] = rotation_pnp_pub[0] - 3.14
+			# elif(rotation_pnp_pub[0]<0):
+			# 	rotation_pnp_pub[0] = rotation_pnp_pub[0] + 3.14
 
 			rospy.loginfo('roll %f \t pitch %f \t yaw %f', rotation_pnp_pub[0], rotation_pnp_pub[1], rotation_pnp_pub[2])
 
