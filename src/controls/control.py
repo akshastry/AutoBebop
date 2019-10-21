@@ -11,13 +11,13 @@ flag_land = False
 
 K_surface = 1.0
 
-kpx = 0.3
-kpy = 0.3
-kpz = 0.5
-kp_yaw = 0.2
+kpx = 0.25
+kpy = 0.25
+kpz = 0.6
+kp_yaw = 0.3
 
-kdx = 0.4
-kdy = 0.4
+kdx = 0.5
+kdy = 0.5
 kdz = 0.0
 
 t0 = x0 = y0 = z0 = yaw0 = 0.0
@@ -54,10 +54,25 @@ def control():
 	uy = kpy * (erryb) - kdy * vy
 	uz = kpz * (errzb) - kdz * vz
 
-	if (yawd > 0.5*3.14):
-		yawd = 0.5*3.14
-	if (yawd < -0.5*3.14):
-		yawd = -0.5*3.14
+	#if (ux > 0.3):
+	#	ux = 0.3
+	#elif (ux < -0.3):
+	#	ux = -0.3
+
+	#if (uy > 0.3):
+	#	uy = 0.3
+	#elif (uy < -0.3):
+	#	uy = -0.3
+
+	#if (uz > 0.3):
+	#	uz = 0.3
+	#elif (uz < -0.3):
+	#	uz = -0.3
+
+	#if (yawd > 0.5*3.14):
+	#	yawd = 0.5*3.14
+	#if (yawd < -0.5*3.14):
+	#	yawd = -0.5*3.14
 
 	ctrl.angular.x = 0.0
 	ctrl.angular.y = 0.0

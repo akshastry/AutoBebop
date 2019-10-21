@@ -58,7 +58,7 @@ P = np.zeros((4,4))
 P[0,0] = 10**(-1)
 P[1,1] = 10**(-1)
 P[2,2] = 10**(-1)
-P[3,3] = 10**(-1)
+P[3,3] = 10**(0)
 
 
 def EKF_predict():
@@ -140,7 +140,9 @@ def main():
 		pose_EKF.pose.pose.orientation.y = q2
 		pose_EKF.pose.pose.orientation.z = q3
 		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,P[3,3]])
-		pub.publish(pose_EKF)
+		
+		if (np.linalg.norm(pose_EKF.pose.covariance)<0.00003):
+			pub.publish(pose_EKF)
 
 		rate.sleep()
 		

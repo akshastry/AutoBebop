@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="AutoBebop" type="control.py" name="control" />
+    <node pkg="AutoBebop" type="mission.py" name="mission" />
+    <node pkg="AutoBebop" type="window_detect_100.py" name="window" />
+    <!-- <node pkg="AutoBebop" type="EKF_window_static.py" name="EKF" /> -->
+</launch>

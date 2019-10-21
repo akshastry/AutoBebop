@@ -51,8 +51,8 @@ def thresholding():
 	frame = cv2.GaussianBlur(frame,blur_params,cv2.BORDER_DEFAULT)
 
 	#yellow
-	lower = (0, 70, 40) #lower threshhold values (H, S, V)
-	upper = (90, 255, 210) #upper threshhold values (H, S, V)
+	lower = (0, 60, 40) #lower threshhold values (H, S, V)
+	upper = (90, 255, 255) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
 	# ##with single G
