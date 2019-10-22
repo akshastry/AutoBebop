@@ -9,6 +9,7 @@ from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from decimal import Decimal
 
 pose_rel = Odometry()
 
@@ -51,7 +52,7 @@ def thresholding():
 	frame = cv2.GaussianBlur(frame,blur_params,cv2.BORDER_DEFAULT)
 
 	#yellow
-	lower = (0, 60, 40) #lower threshhold values (H, S, V)
+	lower = (0, 70, 40) #lower threshhold values (H, S, V)
 	upper = (90, 255, 255) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
@@ -223,7 +224,7 @@ def pose_solve(cluster_mean):
 			# elif(rotation_pnp_pub[0]<0):
 			# 	rotation_pnp_pub[0] = rotation_pnp_pub[0] + 3.14
 
-			rospy.loginfo('roll %f \t pitch %f \t yaw %f', rotation_pnp_pub[0], rotation_pnp_pub[1], rotation_pnp_pub[2])
+			# rospy.loginfo('roll %f \t pitch %f \t yaw %f', rotation_pnp_pub[0], rotation_pnp_pub[1], rotation_pnp_pub[2])
 
 			rotation_pnp_q = euler_to_quaternion(rotation_pnp_pub[0],rotation_pnp_pub[1],rotation_pnp_pub[2])
 			pose_rel.header.frame_id = "odom"
@@ -300,6 +301,36 @@ def pose_display(cluster_mean):
 		p2 = ( int(gate_origin[0][0][0]), int(gate_origin[0][0][1]))
 		img_centroids = cv2.line(img_centroids, p1, p2, (0,255,0), 2)
 		
+		font                   = cv2.FONT_HERSHEY_SIMPLEX
+		# bottomLeftCornerOfText1= ( int(image_points[0][0]), int(image_points[0][1]))
+		# bottomLeftCornerOfText2= ( int(image_points[0][0]), int(image_points[0][1])+20)
+		bottomLeftCornerOfText1= ( 10, 20)
+		bottomLeftCornerOfText2= ( 10, 20+20)
+		fontScale              = 0.4
+		fontColor              = (0,0,255)
+		lineType               = 2
+
+		x = Decimal(translation_pnp[0][0])
+		y = Decimal(translation_pnp[1][0])
+		z = Decimal(translation_pnp[2][0])
+		roll = Decimal(rotation_pnp[0][0])
+		pitch = Decimal(rotation_pnp[1][0])
+		yaw = Decimal(rotation_pnp[2][0])
+		txt1 = 'position: ' + str(round(x, 2)) + ', ' + str(round(y, 2)) + ', ' + str(round(z, 2))
+		txt2 = 'orientation: ' + str(round(roll, 2)) + ', ' + str(round(pitch, 2)) + ', ' + str(round(yaw, 2))
+		cv2.putText(img_centroids, txt1,
+		    bottomLeftCornerOfText1, 
+		    font, 
+		    fontScale,
+		    fontColor,
+		    lineType)
+		cv2.putText(img_centroids, txt2,
+		    bottomLeftCornerOfText2, 
+		    font, 
+		    fontScale,
+		    fontColor,
+		    lineType)
+
 	pose_image = bridge.cv2_to_imgmsg(img_centroids, "8UC3")
 
 def callback(image):
@@ -314,12 +345,13 @@ def main():
 	pub_bin_image = rospy.Publisher('/bin_image', Image, queue_size=10)
 	pub_contour_image = rospy.Publisher('/contour_image', Image, queue_size=10)
 	pub_corner_image = rospy.Publisher('/corner_image', Image, queue_size=10)
-	pub_pose_image = rospy.Publisher('/pose_image', Image, queue_size=10)
+	# pub_pose_image = rospy.Publisher('/pose_image', Image, queue_size=10)
+	pub_pose_image = rospy.Publisher('/pose_image_txt', Image, queue_size=10)
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 
 	# rospy.Subscriber('/cv_camera/image_raw', Image, callback)
-	rospy.Subscriber('/image_raw', Image, callback)
-	# rospy.Subscriber('/image_raw_throttle', Image, callback)
+	# rospy.Subscriber('/image_raw', Image, callback)
+	rospy.Subscriber('/image_raw_throttle', Image, callback)
 
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
