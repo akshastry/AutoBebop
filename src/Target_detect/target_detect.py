@@ -18,6 +18,8 @@ img = np.zeros((480,640,3), np.uint8)
 #ros Images
 raw_image = Image()
 bin_image = Image()
+circles_image = Image()
+circle_avg_image = Image()
 debug_image = Image()
 
 #circle parameters
@@ -48,10 +50,10 @@ def thresholding():
 	height = int(img.shape[0] * scale)
 	dim = (width, height) #can also just specify desired dimensions
 	frame = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-	print('Image Height:')
-	print(height)
-	print('Image Width:')
-	print(width)
+	# print('Image Height:')
+	# print(height)
+	# print('Image Width:')
+	# print(width)
 
 
 	#Convert from BGR to gray colorspace
@@ -75,35 +77,43 @@ def thresholding():
 
 def get_circle(frame):
 	global a, cx, cy
+	global img, circles_image, circle_avg_image
+
 	circles = cv2.HoughCircles(frame,cv2.HOUGH_GRADIENT,1,1,
                             param1=100,param2=50,minRadius=0,maxRadius=0)
+
 	a = []
 	cx = []
 	cy = []
 	img1 = img.copy()
 	if circles is not None:
-	    circles = np.uint16(np.around(circles))
-	    for i in circles[0,:]:
-	        # draw the outer circle
-	        cv2.circle(img1,(i[0],i[1]),i[2],(0,255,0),2)
-	        # draw the center of the circle
-	        cv2.circle(img1,(i[0],i[1]),2,(255,0,0),3)
-	        
-	        a.append(i[2])
-	        cx.append(i[0])
-	        cy.append(i[1])
+		print(len(circles))
+		circles = np.uint16(np.around(circles))
+		for i in circles[0,:]:
+			# draw the outer circle
+			cv2.circle(img1,(i[0],i[1]),i[2],(0,255,0),2)
+			# draw the center of the circle
+			cv2.circle(img1,(i[0],i[1]),2,(0,0,255),3)
+
+			a.append(i[2])
+			cx.append(i[0])
+			cy.append(i[1])
 
 
-	a = np.average(a)
-	cx = np.average(cx)
-	cy = np.average(cy)
+		a = np.average(a)
+		cx = np.average(cx)
+		cy = np.average(cy)
 
-	img2 = img.copy()
-	cv2.circle(img2,(cx.astype(int),cy.astype(int)),a.astype(int),(0,255,0),5)
-	cv2.circle(img2,(cx.astype(int),cy.astype(int)),2,(255,0,0),5)
+		img2 = img.copy()
+		cv2.circle(img2,(cx.astype(int),cy.astype(int)),a.astype(int),(0,255,0),5)
+		cv2.circle(img2,(cx.astype(int),cy.astype(int)),2,(0,0,255),5)
 
-	debug_image = bridge.cv2_to_imgmsg(img2, "8UC3")
+		circles_image = bridge.cv2_to_imgmsg(img1, "8UC3")
+		circle_avg_image = bridge.cv2_to_imgmsg(img2, "8UC3")
 
+		return True
+	else:
+		return False
 
 def get_pose():
 	global a, cx, cy
@@ -150,14 +160,16 @@ def callback(image):
 	raw_image = image
 
 def main():
-	global raw_image, bin_image, pub_pose_rel
+	global raw_image, bin_image, debug_image, pub_pose_rel, circles_image, circle_avg_image
 	rospy.init_node('target_detect', anonymous=True)
 
 	pub_pose_rel = rospy.Publisher('/pose_rel_target', Odometry, queue_size=10)
 	pub_bin_image = rospy.Publisher('/bin_image', Image, queue_size=10)
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
+	pub_circles_image = rospy.Publisher('/circles_image', Image, queue_size=10)
+	pub_circle_avg_image = rospy.Publisher('/circle_avg_image', Image, queue_size=10)
 
-	rospy.Subscriber('/duo3D/image_left_rect', Image, callback) #should be faster than 20Hz or the rate of publishing below, else EKF might get fucked up
+	rospy.Subscriber('/duo3d/left/image_rect', Image, callback) #should be faster than 20Hz or the rate of publishing below, else EKF might get fucked up
 
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
@@ -170,10 +182,13 @@ def main():
 		# 	rospy.loginfo('Some error ocurred... in target_detect.py')
 
 		frame = thresholding()
-		get_circle(frame)
-		get_pose()
+		circle_detected = get_circle(frame)
+		if (circle_detected):
+			get_pose()
 
 		pub_bin_image.publish(bin_image)
+		pub_circles_image.publish(circles_image)
+		pub_circle_avg_image.publish(circle_avg_image)
 		pub_debug_image.publish(debug_image)
 		rate.sleep()
 
