@@ -122,8 +122,6 @@ def main():
 
 		EKF_predict()
 
-		q0, q1, q2, q3 = euler_to_quaternion(0, 0, 0)
-
 		pose_EKF = Odometry()
 		pose_EKF.header.frame_id = "odom"
 		pose_EKF.child_frame_id = "base_link"
@@ -134,10 +132,10 @@ def main():
 		pose_EKF.twist.twist.linear.x = 0
 		pose_EKF.twist.twist.linear.y = 0
 		pose_EKF.twist.twist.linear.z = 0
-		pose_EKF.pose.pose.orientation.w = q0
-		pose_EKF.pose.pose.orientation.x = q1 
-		pose_EKF.pose.pose.orientation.y = q2
-		pose_EKF.pose.pose.orientation.z = q3
+		pose_EKF.pose.pose.orientation.w = 1.0
+		pose_EKF.pose.pose.orientation.x = 0.0
+		pose_EKF.pose.pose.orientation.y = 0.0
+		pose_EKF.pose.pose.orientation.z = 0.0
 		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,])
 		
 		if (np.linalg.norm(pose_EKF.pose.covariance)<0.00003):
