@@ -18,6 +18,7 @@ img = np.zeros((480,640,3), np.uint8)
 #ros Images
 raw_image = Image()
 bin_image = Image()
+debug_image = Image()
 
 #circle parameters
 a= 0.0
@@ -97,6 +98,12 @@ def get_circle(frame):
 	cx = np.average(cx)
 	cy = np.average(cy)
 
+	img2 = img.copy()
+	cv2.circle(img2,(cx.astype(int),cy.astype(int)),a.astype(int),(0,255,0),5)
+	cv2.circle(img2,(cx.astype(int),cy.astype(int)),2,(255,0,0),5)
+
+	debug_image = bridge.cv2_to_imgmsg(img2, "8UC3")
+
 
 def get_pose():
 	global a, cx, cy
@@ -148,24 +155,26 @@ def main():
 
 	pub_pose_rel = rospy.Publisher('/pose_rel_target', Odometry, queue_size=10)
 	pub_bin_image = rospy.Publisher('/bin_image', Image, queue_size=10)
+	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 
 	rospy.Subscriber('/duo3D/image_left_rect', Image, callback) #should be faster than 20Hz or the rate of publishing below, else EKF might get fucked up
 
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
-		try:
-			frame = thresholding()
-			get_circle(frame)
-			get_pose()
-		except:
-			rospy.loginfo('Some error ocurred... in target_detect.py')
-
-		# frame = thresholding()
+		# try:
+		# 	frame = thresholding()
 		# 	get_circle(frame)
 		# 	get_pose()
+		# except:
+		# 	rospy.loginfo('Some error ocurred... in target_detect.py')
+
+		frame = thresholding()
+		get_circle(frame)
+		get_pose()
 
 		pub_bin_image.publish(bin_image)
+		pub_debug_image.publish(debug_image)
 		rate.sleep()
 
 if __name__ == '__main__':
