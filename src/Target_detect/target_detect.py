@@ -11,6 +11,17 @@ from cv_bridge import CvBridge, CvBridgeError
 
 bridge = CvBridge()
 
+# observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
+obs_factor_x = 1.0
+obs_factor_y = 1.0
+obs_factor_z = 1.0
+
+obs_offset_x = 0.0
+obs_offset_y = 0.0
+obs_offset_z = 0.0
+
+# current state of quad
+x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
 
 #Original image in opencv
 img = np.zeros((480,640,3), np.uint8)
@@ -29,6 +40,7 @@ cy = 0.0
 
 #relative pose
 pose_rel = Odometry()
+pose_target_in = Odometry()
 
 def thresholding():
 	global raw_image, bin_image
@@ -159,6 +171,84 @@ def callback(image):
 	global raw_image
 	raw_image = image
 
+# if window relative position and orientation are in camera/body frame
+def pose_cam2in():
+	global pose_rel, pose_target_in, x, y, z, yaw
+	global pub_pose_target_in
+
+	x_obj_rel_c = pose_rel.pose.pose.position.x
+	y_obj_rel_c = pose_rel.pose.pose.position.y
+	z_obj_rel_c = pose_rel.pose.pose.position.z
+
+	# camera to body frame
+	x_obj_rel_b = obs_factor_x * -y_obj_rel_c + obs_offset_x
+	y_obj_rel_b = obs_factor_y * -x_obj_rel_c + obs_offset_y
+	z_obj_rel_b = obs_factor_z * -z_obj_rel_c + obs_offset_z
+
+	rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
+
+	# body to inertial frame rotation transform
+	x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
+	y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
+	z_obj_rel_in = z_obj_rel_b
+
+	# inertial frame shift transform
+	x_obj = x + x_obj_rel_in
+	y_obj = y + y_obj_rel_in
+	z_obj = z + z_obj_rel_in
+
+	pose_target_in.header.frame_id = "odom"
+	pose_target_in.child_frame_id = "base_link"
+	pose_target_in.header.stamp = rospy.get_rostime()
+	pose_target_in.pose.pose.position.x = x_obj
+	pose_target_in.pose.pose.position.y = y_obj
+	pose_target_in.pose.pose.position.z = z_obj
+	pose_target_in.twist.twist.linear.x = 0.0
+	pose_target_in.twist.twist.linear.y = 0.0
+	pose_target_in.twist.twist.linear.z = 0.0
+	pose_target_in.pose.pose.orientation.w = 1.0
+	pose_target_in.pose.pose.orientation.x = 0.0
+	pose_target_in.pose.pose.orientation.y = 0.0
+	pose_target_in.pose.pose.orientation.z = 0.0
+
+	pub_pose_target_in.publish(pose_target_in)
+
+	# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj, y_obj, z_obj, yaw_obj)
+	# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj_rel_in, y_obj_rel_in, z_obj_rel_in, yaw_obj)
+
+# pose of quad in inertial frame
+def quad_pose(data):
+	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
+
+	x = data.pose.pose.position.x
+	y = data.pose.pose.position.y
+	z = data.pose.pose.position.z
+	vx = data.twist.twist.linear.x
+	vy = data.twist.twist.linear.y
+	vz = data.twist.twist.linear.z
+
+	q0 = data.pose.pose.orientation.w
+	q1 = data.pose.pose.orientation.x
+	q2 = data.pose.pose.orientation.y
+	q3 = data.pose.pose.orientation.z
+	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
+
+def quaternion_to_euler(w, x, y, z):
+
+	t0 = +2.0 * (w * x + y * z)
+	t1 = +1.0 - 2.0 * (x * x + y * y)
+	roll = atan2(t0, t1)
+	t2 = +2.0 * (w * y - z * x)
+	t2 = +1.0 if t2 > +1.0 else t2
+	t2 = -1.0 if t2 < -1.0 else t2
+	pitch = asin(t2)
+	t3 = +2.0 * (w * z + x * y)
+	t4 = +1.0 - 2.0 * (y * y + z * z)
+	yaw = atan2(t3, t4)
+	# return [yaw, pitch, roll]
+	return [roll, pitch, yaw]
+
+pub_pose_target_in = rospy.Publisher('/pose_target_in', Odometry, queue_size=10)
 def main():
 	global raw_image, bin_image, debug_image, pub_pose_rel, circles_image, circle_avg_image
 	rospy.init_node('target_detect', anonymous=True)
@@ -170,21 +260,24 @@ def main():
 	pub_circle_avg_image = rospy.Publisher('/circle_avg_image', Image, queue_size=10)
 
 	rospy.Subscriber('/duo3d/left/image_rect', Image, callback) #should be faster than 20Hz or the rate of publishing below, else EKF might get fucked up
+	rospy.Subscriber('/pose_in', Odometry, quad_pose)
 
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
-		# try:
-		# 	frame = thresholding()
-		# 	get_circle(frame)
-		# 	get_pose()
-		# except:
-		# 	rospy.loginfo('Some error ocurred... in target_detect.py')
+		try:
+			frame = thresholding()
+			circle_detected = get_circle(frame)
+			if (circle_detected):
+				get_pose()
+				pose_cam2in()
+		except:
+			rospy.loginfo('Some error ocurred... in target_detect.py')
 
-		frame = thresholding()
-		circle_detected = get_circle(frame)
-		if (circle_detected):
-			get_pose()
+		# frame = thresholding()
+		# circle_detected = get_circle(frame)
+		# if (circle_detected):
+		# 	get_pose()
 
 		pub_bin_image.publish(bin_image)
 		pub_circles_image.publish(circles_image)

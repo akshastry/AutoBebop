@@ -9,26 +9,36 @@ from nav_msgs.msg import Odometry
 flag_initialize=True
 flag_land = False
 
+# to account for odometry drift on different surfaces
 K_surface = 1.0
 
+# P gains
 kpx = 0.25
 kpy = 0.25
 kpz = 0.6
 kp_yaw = 0.3
 
+# D gains
 kdx = 0.5
 kdy = 0.5
 kdz = 0.0
 
+# Initial state values from bebop/odom
 t0 = x0 = y0 = z0 = yaw0 = 0.0
+
+# Current state values obtained after subtractiong initial values(x0, y0, z0, yaw0) from bebop/odom
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
+
+# yaw acceptance radius
 yaw_ac = 2.0*(3.14/180.0)
 
+# desired state values, current state should move towards this
 xd = 0.0
 yd = 0.0
 zd = 0.0
 yawd = 0.0*(3.14/180.0)
 
+# To publish
 ctrl = Twist()
 pose_in = Odometry()
 
@@ -84,27 +94,27 @@ def control():
 
 def quaternion_to_euler(w, x, y, z):
 
-    t0 = +2.0 * (w * x + y * z)
-    t1 = +1.0 - 2.0 * (x * x + y * y)
-    roll = atan2(t0, t1)
-    t2 = +2.0 * (w * y - z * x)
-    t2 = +1.0 if t2 > +1.0 else t2
-    t2 = -1.0 if t2 < -1.0 else t2
-    pitch = asin(t2)
-    t3 = +2.0 * (w * z + x * y)
-    t4 = +1.0 - 2.0 * (y * y + z * z)
-    yaw = atan2(t3, t4)
-    # return [yaw, pitch, roll]
-    return [roll, pitch, yaw]
+	t0 = +2.0 * (w * x + y * z)
+	t1 = +1.0 - 2.0 * (x * x + y * y)
+	roll = atan2(t0, t1)
+	t2 = +2.0 * (w * y - z * x)
+	t2 = +1.0 if t2 > +1.0 else t2
+	t2 = -1.0 if t2 < -1.0 else t2
+	pitch = asin(t2)
+	t3 = +2.0 * (w * z + x * y)
+	t4 = +1.0 - 2.0 * (y * y + z * z)
+	yaw = atan2(t3, t4)
+	# return [yaw, pitch, roll]
+	return [roll, pitch, yaw]
 
 def euler_to_quaternion(roll, pitch, yaw):
 
-		qw = cos(roll/2) * cos(pitch/2) * cos(yaw/2) + sin(roll/2) * sin(pitch/2) * sin(yaw/2)
-		qx = sin(roll/2) * cos(pitch/2) * cos(yaw/2) - cos(roll/2) * sin(pitch/2) * sin(yaw/2)
-		qy = cos(roll/2) * sin(pitch/2) * cos(yaw/2) + sin(roll/2) * cos(pitch/2) * sin(yaw/2)
-		qz = cos(roll/2) * cos(pitch/2) * sin(yaw/2) - sin(roll/2) * sin(pitch/2) * cos(yaw/2)
+	qw = cos(roll/2) * cos(pitch/2) * cos(yaw/2) + sin(roll/2) * sin(pitch/2) * sin(yaw/2)
+	qx = sin(roll/2) * cos(pitch/2) * cos(yaw/2) - cos(roll/2) * sin(pitch/2) * sin(yaw/2)
+	qy = cos(roll/2) * sin(pitch/2) * cos(yaw/2) + sin(roll/2) * cos(pitch/2) * sin(yaw/2)
+	qz = cos(roll/2) * cos(pitch/2) * sin(yaw/2) - sin(roll/2) * sin(pitch/2) * cos(yaw/2)
 
-		return [qw, qx, qy, qz]
+	return [qw, qx, qy, qz]
 
 def feedback(data):
 	global pose_in
@@ -167,8 +177,8 @@ def reference(data):
 	rolld, pitchd, yawd = quaternion_to_euler(q0, q1, q2, q3)
 
 def callback_land(data):
-     global flag_land
-     flag_land = True
+	global flag_land
+	flag_land = True
 
 def main():
 	global t, t0, flag_land
