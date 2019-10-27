@@ -8,7 +8,7 @@ from nav_msgs.msg import Odometry
 from math import atan2, sin, cos, sqrt, asin, acos, atan
 
 x=y=z=0.0
-
+scale = 0.5 #diameter of largest circle on landing bullseye
 
 def show_bullseye_in_rviz(marker_publisher,scale):
 
@@ -40,11 +40,10 @@ def wait_for_time():
         pass
 
 def main():
-    scale = 0.5 #diameter of largest circle on landing bullseye
     rospy.init_node('my_node')
     wait_for_time()
     marker_publisher = rospy.Publisher('bullseye_marker', Marker, queue_size=5)
-    rospy.Subscriber('/pose_win_in_filtered', Odometry, bullseye_feedback) #subscribe to bullseye pos topic 
+    rospy.Subscriber('/pose_target_in_filtered', Odometry, bullseye_feedback) #subscribe to bullseye pos topic 
 
     while not rospy.is_shutdown():
         #make the bullseye marker and publish it 
