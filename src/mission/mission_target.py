@@ -9,6 +9,13 @@ from nav_msgs.msg import Odometry
 flag_land = False
 pose_d_in = Odometry()
 
+Hz = 10.0
+
+# search parameters
+vel = 0.1
+t = t_search = t_search_start = t_window_detect = 0.0
+phase = 0.0
+
 # convergence radii
 r_ac = 0.06
 v_ac = 0.1
@@ -36,9 +43,33 @@ mission_no = 0
 def search():
 	print("searching for target...")
 	global xd, yd, zd, x_target, y_target
+	global t, t_search_start, t_search
+	global phase
+
 	xd = x_srch
 	yd = y_srch
 	zd = z
+
+	xd = x_srch
+	yd = y_srch
+
+	dt = 1/Hz
+	t_search = t - t_search_start
+	# rospy.loginfo('t_search %f', t_search)
+
+	Amplitude_x = 0.1 + 0.01*t_search
+	Amplitude_y = 0.1 + 0.01*t_search
+
+	DEN = sqrt((Amplitude_x*sin(phase))**2 + (Amplitude_y*cos(phase))**2)
+	# rospy.loginfo('DEN %f', DEN)
+
+	if (DEN>0.0001):
+		phase = phase + dt*(vel/DEN)
+	# rospy.loginfo('phase %f',phase)
+
+	xd = Amplitude_x*cos(phase)
+	yd = Amplitude_y*sin(phase)
+	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
 	print("converging to target...")
@@ -47,6 +78,7 @@ def converge():
 	xd = x_obj
 	yd = y_obj
 	zd = 0.0
+	zd = z_obj + 1.0
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
 		mission_no = 2
 
@@ -139,18 +171,22 @@ def pub_waypoint():
 
 pub_pose_d_in = rospy.Publisher('/pose_d_in', Odometry, queue_size=1)
 pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1, latch=True)
-def main():
 
+def main():
+	global t, t_search_start
 	rospy.init_node('mission', anonymous=True)
 
 	rospy.Subscriber('/pose_target_in_filtered', Odometry, target_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
 	time.sleep(1.0)
-	rate = rospy.Rate(10) # 10hz
+	rate = rospy.Rate(Hz) # 10hz
 
+	t0 = rospy.get_time()
+	t_search_start = rospy.get_time() - t0
 	#search initialization ste
 	while not rospy.is_shutdown():
-		# t = rospy.get_time() - t0
+		t = rospy.get_time() - t0
+
 		# try:
 		#	if(flag_land == False):
 		#		waypoint_gen()

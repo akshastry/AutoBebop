@@ -43,21 +43,21 @@ X_k = np.zeros(3)
 
 # Covariances
 Q = np.zeros((3,3))
-Q[0,0] = 10**(-7)
-Q[1,1] = 10**(-7)
-Q[2,2] = 10**(-7)
+Q[0,0] = 10**(-3)
+Q[1,1] = 10**(-3)
+Q[2,2] = 10**(-3)
 # Q[3,3] = 10**(-7)
 
 R = np.zeros((3,3))
-R[0,0] = 10**(-3)
-R[1,1] = 10**(-3)
-R[2,2] = 10**(-3)
+R[0,0] = 10**(-2)
+R[1,1] = 10**(-2)
+R[2,2] = 10**(-1)
 # R[3,3] = 10**(-3)
 
 P = np.zeros((3,3))
-P[0,0] = 10**(-1)
-P[1,1] = 10**(-1)
-P[2,2] = 10**(-1)
+P[0,0] = 10**(1)
+P[1,1] = 10**(1)
+P[2,2] = 10**(1)
 # P[3,3] = 10**(0)
 
 
@@ -111,7 +111,7 @@ def main():
 
 	# time.sleep(1.0)
 
-	rate = rospy.Rate(5) # 10hz
+	rate = rospy.Rate(10) # 10hz
 
 	while not rospy.is_shutdown():
 		# t = rospy.get_time() - t0
@@ -136,9 +136,10 @@ def main():
 		pose_EKF.pose.pose.orientation.x = 0.0
 		pose_EKF.pose.pose.orientation.y = 0.0
 		pose_EKF.pose.pose.orientation.z = 0.0
-		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,])
+		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
 		
-		if (np.linalg.norm(pose_EKF.pose.covariance)<0.00003):
+		print(np.linalg.norm(pose_EKF.pose.covariance))
+		if (np.linalg.norm(pose_EKF.pose.covariance)<0.02):
 			pub.publish(pose_EKF)
 
 		rate.sleep()

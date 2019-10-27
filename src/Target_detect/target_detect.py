@@ -136,7 +136,7 @@ def get_pose():
 	v2 = cy
 
 	#Real world Info
-	R = 0.25
+	R = 0.1
 
 	#Camera Parameters
 	fx = 300
