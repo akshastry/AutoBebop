@@ -14,7 +14,7 @@ def show_bullseye_in_rviz(marker_publisher,scale):
 
     marker1 = Marker( 
     			type = 10, #mesh resource type
-                mesh_resource = "package://beginner_tutorial/bullseye.dae", #change to filepath of bullseye.dae located in bebot package
+                mesh_resource = "package://AutoBebop/src/Target_detect/bullseye.dae", #change to filepath of bullseye.dae located in bebop package
     			id = 69, #haha
     			#lifetime = rospy.Duration(100.0),
     			pose = Pose(Point(x - scale/2, y + scale/2, z), Quaternion(.7071, 0, 0, .7071)),
