@@ -25,14 +25,12 @@ t_L_old = 0.0
 #Original image in opencv
 img_L = np.zeros((480,640,3), np.uint8)
 img_R = np.zeros((480,640,3), np.uint8)
-frame_L = np.zeros((480,640,1), np.uint8)
-frame_R = np.zeros((480,640,1), np.uint8)
-frame_L_prev = np.zeros((480,640,1), np.uint8)
-frame_R_prev = np.zeros((480,640,1), np.uint8)
+img_L_prev = np.zeros((480,640,3), np.uint8)
 
 #ros Images
 left_image = Image()
 right_image = Image()
+left_prev_image = Image()
 left_featured_image = Image()
 right_featured_image = Image()
 spatially_matched_featured_image = Image()
@@ -45,15 +43,14 @@ pose_rel = Odometry()
 
 def pose_estimation():
 	global f, B
-	global frame_L, frame_R, frame_L_prev, frame_R_prev
-	global left_image, right_image, img_L, img_R
+	global left_image, right_image, left_prev_image, img_L, img_R, img_L_prev
 	global left_featured_image, right_featured_image, spatially_matched_featured_image
 	global img_L, frame_L, frame_L_prev, dt_L
 	global temporally_matched_featured_image, flow_left_image
 	global height, width, scale
 
-	frame_L_prev = frame_L
-	frame_R_prev = frame_R
+	# frame_L_prev = frame_L
+	# frame_R_prev = frame_R
 
 	try:
 		img_L = bridge.imgmsg_to_cv2(left_image, "bgr8")
@@ -62,6 +59,11 @@ def pose_estimation():
 
 	try:
 		img_R = bridge.imgmsg_to_cv2(right_image, "bgr8")
+	except CvBridgeError as e:
+		print(e)
+
+	try:
+		img_L_prev = bridge.imgmsg_to_cv2(left_prev_image, "bgr8")
 	except CvBridgeError as e:
 		print(e)
 
@@ -77,10 +79,12 @@ def pose_estimation():
 	dim = (width, height) #can also just specify desired dimensions
 	frame_L = cv2.resize(img_L, dim, interpolation = cv2.INTER_AREA)
 	frame_R = cv2.resize(img_R, dim, interpolation = cv2.INTER_AREA)
+	frame_L_prev = cv2.resize(img_L_prev, dim, interpolation = cv2.INTER_AREA)
 
 	#Convert from BGR to gray colorspace
 	frame_L = cv2.cvtColor(frame_L, cv2.COLOR_BGR2GRAY);
 	frame_R = cv2.cvtColor(frame_R, cv2.COLOR_BGR2GRAY);
+	frame_L_prev = cv2.cvtColor(frame_L_prev, cv2.COLOR_BGR2GRAY);
 
 	img1 = frame_L.copy()
 	img2 = frame_R.copy()
@@ -108,8 +112,8 @@ def pose_estimation():
 		matches_tm = sorted(matches_tm, key = lambda x:x.distance)
 
 		matches_len = min(len(matches_sp),len(matches_tm))
-		matches_sp = matches_sp[:int(0.4*matches_len)]
-		matches_tm = matches_tm[:int(0.4*matches_len)]
+		matches_sp = matches_sp[:int(0.8*matches_len)]
+		matches_tm = matches_tm[:int(0.8*matches_len)]
 
 		# Initialize lists
 		list_X1 = []
@@ -168,11 +172,12 @@ def pose_estimation():
 		temporally_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
 
 
-def left_image_assign(image):
-	global left_image
+def left_image_assign(current_image):
+	global left_image, left_prev_image
 	global t_L_old, dt_L
 
-	left_image = image
+	left_prev_image = left_image
+	left_image = current_image
 
 	t_L = rospy.get_time()
 	dt_L = t_L - t_L_old
@@ -211,7 +216,7 @@ def main():
 	rospy.Subscriber('/duo3d/left/image_rect', Image, left_image_assign)
 	rospy.Subscriber('/duo3d/right/image_rect', Image, right_image_assign)
 
-	rate = rospy.Rate(20)
+	rate = rospy.Rate(15)
 	while not rospy.is_shutdown():
 
 		# try:
