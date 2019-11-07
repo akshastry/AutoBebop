@@ -35,8 +35,8 @@ left_image = Image()
 right_image = Image()
 left_featured_image = Image()
 right_featured_image = Image()
-matched_featured_image = Image()
-flow_left_matched_featured_image = Image()
+spatially_matched_featured_image = Image()
+temporally_matched_featured_image = Image()
 flow_left_image = Image()
 debug_image = Image()
 
@@ -47,9 +47,9 @@ def pose_estimation():
 	global f, B
 	global frame_L, frame_R, frame_L_prev, frame_R_prev
 	global left_image, right_image, img_L, img_R
-	global left_featured_image, right_featured_image, matched_featured_image
+	global left_featured_image, right_featured_image, spatially_matched_featured_image
 	global img_L, frame_L, frame_L_prev, dt_L
-	global flow_left_matched_featured_image, flow_left_image
+	global temporally_matched_featured_image, flow_left_image
 	global height, width, scale
 
 	frame_L_prev = frame_L
@@ -84,6 +84,8 @@ def pose_estimation():
 
 	img1 = frame_L.copy()
 	img2 = frame_R.copy()
+	img3 = frame_L_prev.copy()
+	flow_image = img_L.copy()
 
 	# Initiate ORB detector
 	orb = cv2.ORB_create()
@@ -91,119 +93,80 @@ def pose_estimation():
 	# find the keypoints and descriptors with ORB
 	kp1, des1 = orb.detectAndCompute(img1,None)
 	kp2, des2 = orb.detectAndCompute(img2,None)
+	kp3, des3 = orb.detectAndCompute(img3,None)
 
 	# create BFMatcher object
 	bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-	# Match descriptors.
-	matches = bf.match(des1,des2)
-
-	# Sort them in the order of their distance.
-	matches = sorted(matches, key = lambda x:x.distance)
-
-	top_matches = matches[:20]
-
-	plot_image = cv2.drawMatches(img1,kp1,img2,kp2,top_matches, None, flags=2)
-
-
-	# Initialize lists
-	list_kp1 = []
-	list_kp2 = []
-	list_disp = []
-	list_z = []
-
-	# For each match...
-	for mat in top_matches:
-
-		# Get the matching keypoints for each of the images
-		img1_idx = mat.queryIdx
-		img2_idx = mat.trainIdx
-
-		# x - columns
-		# y - rows
-		# Get the coordinates
-		(x1,y1) = kp1[img1_idx].pt
-		(x2,y2) = kp2[img2_idx].pt
-		if (x2-x1>0.001):
-			z = (f*B)/(x2-x1)
-			list_z.append(z)
-
-		# Append to each list
-		list_kp1.append((x1, y1))
-		list_kp2.append((x2, y2))
-		list_disp.append(x2-x1)
-
-	# mean_z = 0.0
-	# if len(list_z)>0:
-	# 	mean_z = sum(list_z)/len(list_z)
-		# print(mean_z)
-
-	matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
-
-	img3 = frame_L_prev.copy()
-
-	# find the keypoints and descriptors with ORB
-	kp3, des3 = orb.detectAndCompute(img3,None)
-
 	if des3 is not None:
 		# Match descriptors.
-		matches = bf.match(des1,des3)
+		matches_sp = bf.match(des1,des2)
+		matches_tm = bf.match(des1,des3)
 
 		# Sort them in the order of their distance.
-		matches = sorted(matches, key = lambda x:x.distance)
+		matches_sp = sorted(matches_sp, key = lambda x:x.distance)
+		matches_tm = sorted(matches_tm, key = lambda x:x.distance)
 
-		if (len(matches)>100):
-			top_matches = matches[:50]
-		else:
-			top_matches = matches[:20]
-		# draw_params = dict(matchColor = (0,255,0),
-		#                    singlePointColor = (255,0,0),
-		#                    matchesMask = matchesMask,
-		#                    flags = 0)
-
-		# img3 = cv2.drawMatchesKnn(img1,kp1,img2,kp2,matches,None,**draw_params)
-
-		plot_image = cv2.drawMatches(img1,kp1,img3,kp3,top_matches, None, flags=2)
-		flow_left_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
-
-		plot_image = img_L.copy()
+		matches_len = min(len(matches_sp),len(matches_tm))
+		matches_sp = matches_sp[:int(0.4*matches_len)]
+		matches_tm = matches_tm[:int(0.4*matches_len)]
 
 		# Initialize lists
-		list_kp1 = []
-		list_kp2 = []
+		list_X1 = []
+		list_X2 = []
+		list_X3 = []
+		list_z = []
 		list_vx_img = []
 		list_vy_img = []
 
 		# For each match...
-		for mat in top_matches:
+		for mat in matches_sp:
 
 			# Get the matching keypoints for each of the images
-			img1_idx = mat.queryIdx
-			img2_idx = mat.trainIdx
+			img1_idx_sp = mat.queryIdx
+			img2_idx_sp = mat.trainIdx
 
-			# x - columns
-			# y - rows
-			# Get the coordinates
-			(x1,y1) = kp1[img1_idx].pt
-			(x2,y2) = kp3[img2_idx].pt
-			vx_img = (x2-x1)/dt_L
-			vy_img = (y2-y1)/dt_L
+			for mat_tm in matches_tm:
+				# Get the matching keypoints for each of the images
+				img1_idx_tm = mat_tm.queryIdx
+				img3_idx_tm = mat_tm.trainIdx
 
-			# Append to each list
-			list_kp1.append((x1, y1))
-			list_kp2.append((x2, y2))
+				if (img1_idx_tm == img1_idx_sp):
+					break
 
-			list_vx_img.append(vx_img)
-			list_vy_img.append(vy_img)
+			if (img1_idx_tm == img1_idx_sp):
+				# x - columns
+				# y - rows
+				# Get the coordinates
+				(x1,y1) = kp1[img1_idx_sp].pt
+				(x2,y2) = kp2[img2_idx_sp].pt
+				(x3,y3) = kp3[img3_idx_tm].pt
 
-			cv2.arrowedLine(plot_image, (int(x1),int(y1)), (int(x2),int(y2)), (0,0,255), thickness=2, line_type=8, shift=0, tipLength=0.5)
+				# print((x1,x2,x3,y1,y2,y3))
 
+				if (x2-x1>0.00001):
+					z = (f*B)/(x2-x1)
 
-		# print(dt_L)
-		# print(sum(list_vx_img)/len(list_vx_img))
+					vx_img = (x3-x1)/dt_L
+					vy_img = (y3-y1)/dt_L
 
+					list_X1.append((x1, y1))
+					list_X2.append((x2, y2))
+					list_X3.append((x3, y3))
+					list_z.append(z)
+					list_vx_img.append(vx_img)
+					list_vy_img.append(vy_img)
 
-		flow_left_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
+					cv2.arrowedLine(flow_image, (int(x1),int(y1)), (int(x3),int(y3)), (0,0,255), thickness=2, line_type=8, shift=0, tipLength=0.5)
+		
+		flow_left_image = bridge.cv2_to_imgmsg(flow_image, "8UC3")
+
+		plot_image = cv2.drawMatches(img1,kp1,img2,kp2,matches_sp, None, flags=2)
+		spatially_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
+
+		plot_image = cv2.drawMatches(img1,kp1,img3,kp3,matches_tm, None, flags=2)
+		temporally_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
+
 
 def left_image_assign(image):
 	global left_image
@@ -241,8 +204,8 @@ def main():
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 	pub_left_featured_image = rospy.Publisher('/left_featured_image', Image, queue_size=10)
 	pub_right_featured_image = rospy.Publisher('/right_featured_image', Image, queue_size=10)
-	pub_matched_featured_image = rospy.Publisher('/matched_featured_image', Image, queue_size=10)
-	pub_flow_left_matched_featured_image = rospy.Publisher('/flow_left_matched_featured_image', Image, queue_size=10)
+	pub_spatially_matched_featured_image = rospy.Publisher('/spatially_matched_featured_image', Image, queue_size=10)
+	pub_temporally_matched_featured_image = rospy.Publisher('/temporally_matched_featured_image', Image, queue_size=10)
 	pub_flow_left_image = rospy.Publisher('/flow_left_image', Image, queue_size=10)
 
 	rospy.Subscriber('/duo3d/left/image_rect', Image, left_image_assign)
@@ -259,8 +222,8 @@ def main():
 
 		pose_estimation()
 
-		pub_matched_featured_image.publish(matched_featured_image)
-		pub_flow_left_matched_featured_image.publish(flow_left_matched_featured_image)
+		pub_spatially_matched_featured_image.publish(spatially_matched_featured_image)
+		pub_temporally_matched_featured_image.publish(temporally_matched_featured_image)
 		pub_flow_left_image.publish(flow_left_image)
 		pub_debug_image.publish(debug_image)
 		rate.sleep()
