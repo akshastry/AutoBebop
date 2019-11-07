@@ -107,13 +107,26 @@ def pose_estimation():
 		matches_sp = bf.match(des1,des2)
 		matches_tm = bf.match(des1,des3)
 
+		# print("Spatially")
+		# for mat in matches_sp[:10]:
+		# 	img1_idx_sp = mat.queryIdx
+		# 	print(img1_idx_sp)
+		# print("temporally")
+		# for mat in matches_tm[:10]:
+		# 	img1_idx_tm = mat.queryIdx
+		# 	print(img1_idx_tm)
+
 		# Sort them in the order of their distance.
 		matches_sp = sorted(matches_sp, key = lambda x:x.distance)
 		matches_tm = sorted(matches_tm, key = lambda x:x.distance)
 
 		matches_len = min(len(matches_sp),len(matches_tm))
-		matches_sp = matches_sp[:int(0.8*matches_len)]
-		matches_tm = matches_tm[:int(0.8*matches_len)]
+		matches_sp = matches_sp[:int(0.5*matches_len)]
+		matches_tm = matches_tm[:int(0.5*matches_len)]
+
+		# Sort them in the order of their queryIdx
+		matches_sp = sorted(matches_sp, key = lambda x:x.queryIdx)
+		matches_tm = sorted(matches_tm, key = lambda x:x.queryIdx)
 
 		# Initialize lists
 		list_X1 = []
@@ -123,6 +136,7 @@ def pose_estimation():
 		list_vx_img = []
 		list_vy_img = []
 
+		start = 0
 		# For each match...
 		for mat in matches_sp:
 
@@ -130,12 +144,13 @@ def pose_estimation():
 			img1_idx_sp = mat.queryIdx
 			img2_idx_sp = mat.trainIdx
 
-			for mat_tm in matches_tm:
+			for mat_tm in matches_tm[start:]:
 				# Get the matching keypoints for each of the images
 				img1_idx_tm = mat_tm.queryIdx
 				img3_idx_tm = mat_tm.trainIdx
 
 				if (img1_idx_tm == img1_idx_sp):
+					start = start+1
 					break
 
 			if (img1_idx_tm == img1_idx_sp):
@@ -161,7 +176,7 @@ def pose_estimation():
 					list_vx_img.append(vx_img)
 					list_vy_img.append(vy_img)
 
-					cv2.arrowedLine(flow_image, (int(x1),int(y1)), (int(x3),int(y3)), (0,0,255), thickness=2, line_type=8, shift=0, tipLength=0.5)
+					cv2.arrowedLine(flow_image, (int(x1),int(y1)), (int(x3),int(y3)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
 		
 		flow_left_image = bridge.cv2_to_imgmsg(flow_image, "8UC3")
 
@@ -216,7 +231,7 @@ def main():
 	rospy.Subscriber('/duo3d/left/image_rect', Image, left_image_assign)
 	rospy.Subscriber('/duo3d/right/image_rect', Image, right_image_assign)
 
-	rate = rospy.Rate(15)
+	rate = rospy.Rate(30)
 	while not rospy.is_shutdown():
 
 		# try:
