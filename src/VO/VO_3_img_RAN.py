@@ -11,6 +11,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial.transform import Rotation as R
 from scipy.linalg import expm, sinm, cosm
+from sklearn import linear_model, datasets
 
 bridge = CvBridge()
 
@@ -234,56 +235,107 @@ def pose_estimation():
 
 			A = np.asarray(list_A)
 			Y = np.asarray(list_Y)
+			# Y = np.array([Y]).T
 
 			# print(A)
 			# print(Y)
-			V,residuals,_,_ = np.linalg.lstsq(A, Y, rcond=None)
+			# V,residuals,_,_ = np.linalg.lstsq(A, Y, rcond=None)
 
-			if (residuals<100.0):
-				print(residuals)
 			### RANSAC
+			V,res,inlier_no  = ransac(np.concatenate((A,np.reshape(Y,(-1,1))), axis = 1),3,5,50000000000000)
+			# print("vel")
+			print(inlier_no*2.0/len(Y)*1.0)
 
-				t_X = rospy.get_time()
-				d_t_X = (t_X - t_X_old)
-				t_X_old = t_X
+			t_X = rospy.get_time()
+			d_t_X = (t_X - t_X_old)
+			t_X_old = t_X
 
-				V_ang_cam = V[3:6]
-				V_ang_b = r_b_c.apply(V_ang_cam)
-				delta_r_in_b = R.from_dcm(expm(d_t_X*skew(V_ang_b)))
-				r_in_b = delta_r_in_b*r_in_b
+			V_ang_cam = V[3:6]
+			V_ang_b = r_b_c.apply(V_ang_cam)
+			delta_r_in_b = R.from_dcm(expm(d_t_X*skew(V_ang_b)))
+			r_in_b = delta_r_in_b*r_in_b
 
-				V_lin_cam = V[:3]
-				V_lin_b = r_b_c.apply(V_lin_cam)
-				V_lin_in = r_in_b.apply(V_lin_b)
+			V_lin_cam = V[:3]
+			V_lin_b = r_b_c.apply(V_lin_cam)
+			V_lin_in = r_in_b.apply(V_lin_b)
 
-				pos = pos + d_t_X*V_lin_in[:3]
-				# print(pos)
-				quat = r_in_b.as_quat()
-				# print(quat)
+			pos = pos + d_t_X*V_lin_in[:3]
+			# print(pos)
+			quat = r_in_b.as_quat()
+			# print(quat)
 
-				pose_in.header.frame_id = "odom"
-				pose_in.child_frame_id = "base_link"
-				pose_in.header.stamp = rospy.get_rostime()
-				pose_in.pose.pose.position.x = pos[0]
-				pose_in.pose.pose.position.y = pos[1]
-				pose_in.pose.pose.position.z = pos[2]
-				pose_in.twist.twist.linear.x = V_lin_in[0]
-				pose_in.twist.twist.linear.y = V_lin_in[1]
-				pose_in.twist.twist.linear.z = V_lin_in[2]
-				pose_in.pose.pose.orientation.w = quat[3]
-				pose_in.pose.pose.orientation.x = quat[0]
-				pose_in.pose.pose.orientation.y = quat[1]
-				pose_in.pose.pose.orientation.z = quat[2]
-				pose_in.twist.twist.angular.x = V_ang_b[0]
-				pose_in.twist.twist.angular.y = V_ang_b[1]
-				pose_in.twist.twist.angular.z = V_ang_b[2]
+			pose_in.header.frame_id = "odom"
+			pose_in.child_frame_id = "base_link"
+			pose_in.header.stamp = rospy.get_rostime()
+			pose_in.pose.pose.position.x = pos[0]
+			pose_in.pose.pose.position.y = pos[1]
+			pose_in.pose.pose.position.z = pos[2]
+			pose_in.twist.twist.linear.x = V_lin_in[0]
+			pose_in.twist.twist.linear.y = V_lin_in[1]
+			pose_in.twist.twist.linear.z = V_lin_in[2]
+			pose_in.pose.pose.orientation.w = quat[3]
+			pose_in.pose.pose.orientation.x = quat[0]
+			pose_in.pose.pose.orientation.y = quat[1]
+			pose_in.pose.pose.orientation.z = quat[2]
+			pose_in.twist.twist.angular.x = V_ang_b[0]
+			pose_in.twist.twist.angular.y = V_ang_b[1]
+			pose_in.twist.twist.angular.z = V_ang_b[2]
 
-				vel_VO.linear.x = V_lin_in[0]
-				vel_VO.linear.y = V_lin_in[1]
-				vel_VO.linear.z = V_lin_in[2]
-				vel_VO.angular.x = V_ang_b[0]
-				vel_VO.angular.y = V_ang_b[1]
-				vel_VO.angular.z = V_ang_b[2]
+			vel_VO.linear.x = V_lin_in[0]
+			vel_VO.linear.y = V_lin_in[1]
+			vel_VO.linear.z = V_lin_in[2]
+			vel_VO.angular.x = V_ang_b[0]
+			vel_VO.angular.y = V_ang_b[1]
+			vel_VO.angular.z = V_ang_b[2]
+
+
+def ransac(data, min_pts, itern, threshDist):
+    d_sh = data.shape
+    num_pts = d_sh[0]/2
+    num_param = d_sh[1] - 1
+#     bestInNum = 0
+    best_inlier_num = 0
+    for i in range(itern):
+        idx = np.random.permutation(range(num_pts))[:min_pts]
+        sample = []
+        for j in range(len(idx)):
+            sample.append(data[idx[j]*2,:])
+            sample.append(data[idx[j]*2+1,:])
+        sample = np.array(sample)
+        A = sample[:,:-1]
+        b = sample[:,-1]
+        x = np.linalg.lstsq(A,b, rcond=None)[0]
+        x = np.reshape(x, (-1, 1))
+        
+        inlier_pts = []
+        num_inlier = 0
+        for j in range(num_pts):
+            Ap = np.vstack(([data[2*j,:-1]], [data[2*j+1,:-1]]))
+            bp = np.vstack(([data[2*j,-1]], [data[2*j+1,-1]]))
+            dist = np.linalg.norm(np.matmul(Ap,x) - bp)
+            if(dist <= threshDist):
+                inlier_pts.append(np.vstack(([data[2*j,:]], [data[2*j+1,:]])))
+                num_inlier = num_inlier + 1
+                
+#         for j in range(num_inlier):
+#             inlier_pts = np.array(inlier_pts)
+#             A = np.concatenate((inlier_pts[:,:-1], np.ones((len(inlier_pts),1))), axis = 1)
+#             b = inlier_pts[:,-1]
+#             x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
+        if(num_inlier > best_inlier_num):
+            best_inlier_num = num_inlier
+            best_inlier_pts = inlier_pts
+     
+    if(best_inlier_num > 0):
+        best_inlier_pts = np.array(best_inlier_pts)
+        # print(best_inlier_pts.shape)
+        best_inlier_pts = best_inlier_pts.reshape((2*len(best_inlier_pts),d_sh[1]))
+        A = best_inlier_pts[:,:-1]
+        b = best_inlier_pts[:,-1]
+        x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
+        return [x, res, best_inlier_num]
+    else:
+        return [np.zeros(num_param),0,0]
 
 
 def left_image_assign(current_image):
@@ -358,7 +410,7 @@ def main():
 	pub_temporally_matched_featured_image = rospy.Publisher('/temporally_matched_featured_image', Image, queue_size=10)
 	pub_flow_left_image = rospy.Publisher('/flow_left_image', Image, queue_size=10)
 
-	pub_pose_in_VO = rospy.Publisher('/pose_in_VO_lst', Odometry, queue_size=10)
+	pub_pose_in_VO = rospy.Publisher('/pose_in_VO_RAN', Odometry, queue_size=10)
 	pub_vel_VO = rospy.Publisher('/vel_VO', Twist, queue_size=10)
 
 	rospy.Subscriber('/duo3d/left/image_rect', Image, left_image_assign)
