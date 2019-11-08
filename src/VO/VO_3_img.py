@@ -6,21 +6,34 @@ from math import sin, cos, atan2, asin, exp, sqrt
 from matplotlib import pyplot as plt
 from std_msgs.msg import String, Float64, Empty
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from scipy.spatial.transform import Rotation as R
+from scipy.linalg import expm, sinm, cosm
 
 bridge = CvBridge()
 
 # camera Parameters
 f = 202
 B = 0.03
+cx = 640*0.5
+cy = 480*0.5
+
+## camera to body rotation matrix
+r_b_c = R.from_euler('zyx', [90, 0, 180], degrees=True)
+
+## initialization of body to inertial rotation matrix
+r_in_b = R.from_euler('zyx', [0, 0, 0], degrees=True)
 
 # current state of quad
-x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
+pos = np.array([0.0, 0.0, 0.0])
+quat = np.array([0.0, 0.0, 0.0, 1.0])
 
 # time stuff
 dt_L = 0.0
 t_L_old = 0.0
+t_X_old = 0.0
 
 #Original image in opencv
 img_L = np.zeros((480,640,3), np.uint8)
@@ -38,16 +51,23 @@ temporally_matched_featured_image = Image()
 flow_left_image = Image()
 debug_image = Image()
 
-#relative pose
-pose_rel = Odometry()
+#inertial pose
+pose_in = Odometry()
+
+#velocity from VO
+vel_VO = Twist()
+
+flag_initialize = True
 
 def pose_estimation():
-	global f, B
+	global f, B, cx, cy
 	global left_image, right_image, left_prev_image, img_L, img_R, img_L_prev
 	global left_featured_image, right_featured_image, spatially_matched_featured_image
 	global img_L, frame_L, frame_L_prev, dt_L
 	global temporally_matched_featured_image, flow_left_image
 	global height, width, scale
+	global t_X_old, pos, quat, r_in_b
+	global pose_in, vel_VO
 
 	# frame_L_prev = frame_L
 	# frame_R_prev = frame_R
@@ -102,6 +122,16 @@ def pose_estimation():
 	# create BFMatcher object
 	bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
+	# Initialize lists
+	list_X1 = []
+	list_X2 = []
+	list_X3 = []
+	list_z = []
+	list_vx_img = []
+	list_vy_img = []
+	list_A = []
+	list_Y = []
+
 	if des3 is not None:
 		# Match descriptors.
 		matches_sp = bf.match(des1,des2)
@@ -127,14 +157,6 @@ def pose_estimation():
 		# Sort them in the order of their queryIdx
 		matches_sp = sorted(matches_sp, key = lambda x:x.queryIdx)
 		matches_tm = sorted(matches_tm, key = lambda x:x.queryIdx)
-
-		# Initialize lists
-		list_X1 = []
-		list_X2 = []
-		list_X3 = []
-		list_z = []
-		list_vx_img = []
-		list_vy_img = []
 
 		start = 0
 		# For each match...
@@ -163,12 +185,22 @@ def pose_estimation():
 
 				# print((x1,x2,x3,y1,y2,y3))
 
-				if (x2-x1>0.00001):
+				if ( abs(y1-y2)<1 and x2-x1>1):
 					z = (f*B)/(x2-x1)
 
-					vx_img = (x3-x1)/dt_L
-					vy_img = (y3-y1)/dt_L
+					vx_img = (x1-x3)/(f*dt_L)
+					vy_img = (y1-y3)/(f*dt_L)
 
+					x = (x1 - cx)/f
+					y = (y1 - cy)/f
+					f1 = (-1.0/z, 0.0, x/z, x*y, -(1.0+x*x), y)
+					f2 = (0.0, -1.0/z, y/z, 1.0+y*y, -x*y, -x)
+
+					# if (len(X1)==0):
+					# 	X1 = np.array([[x1,y1]])
+					# else:
+					# 	X1 = np.concatenate((X1,np.array([[x1,y1]])),axis=0)
+					# # print(X1)
 					list_X1.append((x1, y1))
 					list_X2.append((x2, y2))
 					list_X3.append((x3, y3))
@@ -176,7 +208,12 @@ def pose_estimation():
 					list_vx_img.append(vx_img)
 					list_vy_img.append(vy_img)
 
-					cv2.arrowedLine(flow_image, (int(x1),int(y1)), (int(x3),int(y3)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
+					list_A.append(f1)
+					list_A.append(f2)
+					list_Y.append(vx_img)
+					list_Y.append(vy_img)
+
+					cv2.arrowedLine(flow_image, (int(x3),int(y3)), (int(x1),int(y1)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
 		
 		flow_left_image = bridge.cv2_to_imgmsg(flow_image, "8UC3")
 
@@ -185,6 +222,66 @@ def pose_estimation():
 
 		plot_image = cv2.drawMatches(img1,kp1,img3,kp3,matches_tm, None, flags=2)
 		temporally_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
+
+		if list_X1:
+
+			X1 = np.asarray(list_X1)
+			X2 = np.asarray(list_X2)
+			X3 = np.asarray(list_X3)
+			Z = np.asarray(list_z)
+			vx_img = np.asarray(list_vx_img)
+			vy_img = np.asarray(list_vy_img)
+
+			A = np.asarray(list_A)
+			Y = np.asarray(list_Y)
+
+			# print(A)
+			# print(Y)
+			V,residuals,_,_ = np.linalg.lstsq(A, Y, rcond=None)
+
+			### RANSAC
+
+			t_X = rospy.get_time()
+			d_t_X = (t_X - t_X_old)
+			t_X_old = t_X
+
+			V_ang_cam = V[3:6]
+			V_ang_b = r_b_c.apply(V_ang_cam)
+			delta_r_in_b = R.from_dcm(expm(d_t_X*skew(V_ang_b)))
+			r_in_b = delta_r_in_b*r_in_b
+
+			V_lin_cam = V[:3]
+			V_lin_b = r_b_c.apply(V_lin_cam)
+			V_lin_in = r_in_b.apply(V_lin_b)
+
+			pos = pos + d_t_X*V_lin_in[:3]
+			# print(pos)
+			quat = r_in_b.as_quat()
+			# print(quat)
+
+			pose_in.header.frame_id = "odom"
+			pose_in.child_frame_id = "base_link"
+			pose_in.header.stamp = rospy.get_rostime()
+			pose_in.pose.pose.position.x = pos[0]
+			pose_in.pose.pose.position.y = pos[1]
+			pose_in.pose.pose.position.z = pos[2]
+			pose_in.twist.twist.linear.x = V_lin_in[0]
+			pose_in.twist.twist.linear.y = V_lin_in[1]
+			pose_in.twist.twist.linear.z = V_lin_in[2]
+			pose_in.pose.pose.orientation.w = quat[3]
+			pose_in.pose.pose.orientation.x = quat[0]
+			pose_in.pose.pose.orientation.y = quat[1]
+			pose_in.pose.pose.orientation.z = quat[2]
+			pose_in.twist.twist.angular.x = V_ang_b[0]
+			pose_in.twist.twist.angular.y = V_ang_b[1]
+			pose_in.twist.twist.angular.z = V_ang_b[2]
+
+			vel_VO.linear.x = V_lin_in[0]
+			vel_VO.linear.y = V_lin_in[1]
+			vel_VO.linear.z = V_lin_in[2]
+			vel_VO.angular.x = V_ang_b[0]
+			vel_VO.angular.y = V_ang_b[1]
+			vel_VO.angular.z = V_ang_b[2]
 
 
 def left_image_assign(current_image):
@@ -217,10 +314,41 @@ def quaternion_to_euler(w, x, y, z):
 	# return [yaw, pitch, roll]
 	return [roll, pitch, yaw]
 
+def skew(v):
+	""" 
+	Returns the skew-symmetric matrix of a vector
+	Ref: https://github.com/dreamdragon/Solve3Plus1/blob/master/skew3.m
+
+	Also known as the cross-product matrix [v]_x such that 
+	the cross product of (v x w) is equivalent to the 
+	matrix multiplication of the cross product matrix of 
+	v ([v]_x) and w
+
+	In other words: v x w = [v]_x * w
+	"""
+	sk = np.float32([[0, -v[2], v[1]],
+	           		[v[2], 0, -v[0]],
+	           		[-v[1], v[0], 0]])
+
+	return sk
+
+def get_first_odom_val(data):
+	global pos, quat, r_in_b, flag_initialize
+	if (flag_initialize == True):
+		pos[0] = data.pose.pose.position.x
+		pos[1] = data.pose.pose.position.y
+		pos[2] = data.pose.pose.position.z
+		quat[3] = data.pose.pose.orientation.w
+		quat[0] = data.pose.pose.orientation.x
+		quat[1] = data.pose.pose.orientation.y
+		quat[2] = data.pose.pose.orientation.z
+		r_in_b = R.from_quat(quat)
+		flag_initialize = False
+
 def main():
+	global t_X_old, t_L_old
 	rospy.init_node('target_detect', anonymous=True)
 
-	pub_pose_rel = rospy.Publisher('/pose_rel_target', Odometry, queue_size=10)
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
 	pub_left_featured_image = rospy.Publisher('/left_featured_image', Image, queue_size=10)
 	pub_right_featured_image = rospy.Publisher('/right_featured_image', Image, queue_size=10)
@@ -228,10 +356,18 @@ def main():
 	pub_temporally_matched_featured_image = rospy.Publisher('/temporally_matched_featured_image', Image, queue_size=10)
 	pub_flow_left_image = rospy.Publisher('/flow_left_image', Image, queue_size=10)
 
+	pub_pose_in_VO = rospy.Publisher('/pose_in_VO', Odometry, queue_size=10)
+	pub_vel_VO = rospy.Publisher('/vel_VO', Twist, queue_size=10)
+
 	rospy.Subscriber('/duo3d/left/image_rect', Image, left_image_assign)
 	rospy.Subscriber('/duo3d/right/image_rect', Image, right_image_assign)
 
+	## only for taking the first position and orientation so that the origin of the odom(ground truth) matches tha origin of the pose from VO
+	rospy.Subscriber('bebop/odom', Odometry, get_first_odom_val)
+
 	rate = rospy.Rate(30)
+	t_X_old = rospy.get_time()
+	t_L_old = rospy.get_time()
 	while not rospy.is_shutdown():
 
 		# try:
@@ -246,6 +382,10 @@ def main():
 		pub_temporally_matched_featured_image.publish(temporally_matched_featured_image)
 		pub_flow_left_image.publish(flow_left_image)
 		pub_debug_image.publish(debug_image)
+
+		pub_pose_in_VO.publish(pose_in)
+		pub_vel_VO.publish(vel_VO)
+
 		rate.sleep()
 
 if __name__ == '__main__':
