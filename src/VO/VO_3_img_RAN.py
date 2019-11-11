@@ -12,6 +12,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial.transform import Rotation as R
 from scipy.linalg import expm, sinm, cosm
 from sklearn import linear_model, datasets
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 bridge = CvBridge()
 
@@ -194,6 +195,8 @@ def pose_estimation():
 
 					x = (x1 - cx)/f
 					y = (y1 - cy)/f
+					X = x*z
+					Y = y*z
 					f1 = (-1.0/z, 0.0, x/z, x*y, -(1.0+x*x), y)
 					f2 = (0.0, -1.0/z, y/z, 1.0+y*y, -x*y, -x)
 
@@ -216,6 +219,11 @@ def pose_estimation():
 
 					cv2.arrowedLine(flow_image, (int(x3),int(y3)), (int(x1),int(y1)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
 		
+		# fig = plt.figure()
+		# ax = fig.add_subplot(111, projection='3d')
+		# ax.scatter(X, Y, z)
+		# plt.show()
+
 		flow_left_image = bridge.cv2_to_imgmsg(flow_image, "8UC3")
 
 		plot_image = cv2.drawMatches(img1,kp1,img2,kp2,matches_sp, None, flags=2)
@@ -242,7 +250,7 @@ def pose_estimation():
 			# V,residuals,_,_ = np.linalg.lstsq(A, Y, rcond=None)
 
 			### RANSAC
-			V,res,inlier_no  = ransac(np.concatenate((A,np.reshape(Y,(-1,1))), axis = 1),3,5,50000000000000)
+			V,res,inlier_no  = ransac(np.concatenate((A,np.reshape(Y,(-1,1))), axis = 1),3,5,1)
 			# print("vel")
 			print(inlier_no*2.0/len(Y)*1.0)
 
@@ -419,26 +427,27 @@ def main():
 	## only for taking the first position and orientation so that the origin of the odom(ground truth) matches tha origin of the pose from VO
 	rospy.Subscriber('bebop/odom', Odometry, get_first_odom_val)
 
-	rate = rospy.Rate(5)
-	t_X_old = rospy.get_time()
-	t_L_old = rospy.get_time()
+	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
+		if (flag_initialize==False):
+			# try:
+			# 	pose_estimation()
+			# except:
+			# 	rospy.loginfo('Some error ocurred... in target_detect.py')
 
-		# try:
-		# 	pose_estimation()
-		# except:
-		# 	rospy.loginfo('Some error ocurred... in target_detect.py')
+			pose_estimation()
+		
+			pub_spatially_matched_featured_image.publish(spatially_matched_featured_image)
+			pub_temporally_matched_featured_image.publish(temporally_matched_featured_image)
+			pub_flow_left_image.publish(flow_left_image)
+			pub_debug_image.publish(debug_image)
 
-		pose_estimation()
+			pub_pose_in_VO.publish(pose_in)
+			pub_vel_VO.publish(vel_VO)
 
-		pub_spatially_matched_featured_image.publish(spatially_matched_featured_image)
-		pub_temporally_matched_featured_image.publish(temporally_matched_featured_image)
-		pub_flow_left_image.publish(flow_left_image)
-		pub_debug_image.publish(debug_image)
-
-		pub_pose_in_VO.publish(pose_in)
-		pub_vel_VO.publish(vel_VO)
-
+		else:
+			t_X_old = rospy.get_time()
+			t_L_old = rospy.get_time()
 		rate.sleep()
 
 if __name__ == '__main__':

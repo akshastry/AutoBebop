@@ -11,6 +11,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial.transform import Rotation as R
 from scipy.linalg import expm, sinm, cosm
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 bridge = CvBridge()
 
@@ -214,7 +215,8 @@ def pose_estimation():
 					list_Y.append(vy_img)
 
 					cv2.arrowedLine(flow_image, (int(x3),int(y3)), (int(x1),int(y1)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
-		
+
+
 		flow_left_image = bridge.cv2_to_imgmsg(flow_image, "8UC3")
 
 		plot_image = cv2.drawMatches(img1,kp1,img2,kp2,matches_sp, None, flags=2)
@@ -285,6 +287,46 @@ def pose_estimation():
 				vel_VO.angular.y = V_ang_b[1]
 				vel_VO.angular.z = V_ang_b[2]
 
+def ransac(data, min_pts, itern, threshDist):
+    d_sh = data.shape
+    num_pts = d_sh[0]
+    num_param = d_sh[1]
+#     bestInNum = 0
+    bestParam = np.zeros(num_param)
+    best_inlier_num = 0
+    for i in range(itern):
+        sample = np.random.permutation(data)[:min_pts,:]
+        A = sample
+        b = -np.ones((len(sample),1))
+        x = np.linalg.lstsq(A,b, rcond=None)[0]
+        # print(x)
+        inlier_pts = []
+        num_inlier = 0
+        for j in range(num_pts):
+			A_pt = data[j,:]
+			b_pt = -1.0
+			dist = abs(np.dot(A_pt,x)-b_pt)/np.linalg.norm(x)
+			# print(dist)
+			if(dist <= threshDist):
+				inlier_pts.append(data[j,:])
+				num_inlier = num_inlier+1
+                
+#         for j in range(num_inlier):
+#             inlier_pts = np.array(inlier_pts)
+#             A = np.concatenate((inlier_pts[:,:-1], np.ones((len(inlier_pts),1))), axis = 1)
+#             b = inlier_pts[:,-1]
+#             x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
+        if(num_inlier > best_inlier_num):
+            best_inlier_num = num_inlier
+            bestParam = x
+            best_inlier_pts = inlier_pts
+            
+    # print(best_inlier_pts)
+    best_inlier_pts = np.array(best_inlier_pts)
+    A = best_inlier_pts
+    b = -np.ones((len(best_inlier_pts),1))
+    x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
+    return [x, res, best_inlier_num]
 
 def left_image_assign(current_image):
 	global left_image, left_prev_image
@@ -340,15 +382,16 @@ def get_first_odom_val(data):
 		pos[0] = data.pose.pose.position.x
 		pos[1] = data.pose.pose.position.y
 		pos[2] = data.pose.pose.position.z
-		quat[3] = data.pose.pose.orientation.w
-		quat[0] = data.pose.pose.orientation.x
-		quat[1] = data.pose.pose.orientation.y
-		quat[2] = data.pose.pose.orientation.z
-		r_in_b = R.from_quat(quat)
 		flag_initialize = False
 
+	quat[3] = data.pose.pose.orientation.w
+	quat[0] = data.pose.pose.orientation.x
+	quat[1] = data.pose.pose.orientation.y
+	quat[2] = data.pose.pose.orientation.z
+	r_in_b = R.from_quat(quat)
+
 def main():
-	global t_X_old, t_L_old, flag_initialize
+	global t_X_old, t_L_old
 	rospy.init_node('target_detect', anonymous=True)
 
 	pub_debug_image = rospy.Publisher('/debug_image', Image, queue_size=10)
