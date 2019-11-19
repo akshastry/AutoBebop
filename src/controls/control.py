@@ -15,7 +15,7 @@ K_surface = 1.0
 # P gains
 kpx = 0.3
 kpy = 0.3
-kpz = 0.4
+kpz = 0.3
 kp_yaw = 0.3
 
 # D gains
@@ -33,8 +33,8 @@ x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
 yaw_ac = 2.0*(3.14/180.0)
 
 # desired state values, current state should move towards this
-xd = 1.0
-yd = -1.0
+xd = 0.0
+yd = 0.0
 zd = 0.0
 yawd = 0.0*(3.14/180.0)
 
@@ -42,10 +42,22 @@ yawd = 0.0*(3.14/180.0)
 ctrl = Twist()
 pose_in = Odometry()
 
+A = 0.5
+T = 10.0
+omega = 2.0*3.14/T
+
 def control():
-	global ctrl
+	global ctrl, t, t0
 	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
 	global xd, yd, zd, yawd
+
+	t = rospy.get_time() - t0
+
+	########### for recording bag purposes ############
+	xd = A * sin(omega*t)
+	yd = A * cos(omega*t) - A
+	zd = 0.5
+	yawd = 0.0 * 1.0 * A * sin(omega*t)
 
 	errx = xd - x
 	erry = yd - y
@@ -69,7 +81,8 @@ def control():
 
 	# rospy.loginfo('xd %f \t x %f \t ux %f',xd,x,ux)
 	# rospy.loginfo('yd %f \t y %f \t uy %f',yd,y,uy)
-	# rospy.loginfo('zd %f \t z %f \t uz %f',zd,z,uz)
+	rospy.loginfo('zd %f \t z %f \t uz %f',zd,z,uz)
+
 
 	#if (ux > 0.3):
 	#	ux = 0.3
@@ -94,6 +107,8 @@ def control():
 	ctrl.angular.x = 0.0
 	ctrl.angular.y = 0.0
 	ctrl.angular.z = kp_yaw * (yawd - yaw)
+
+	# rospy.loginfo('yawd %f \t yaw %f',yawd,yaw)
 
 	ctrl.linear.x = ux
 	ctrl.linear.y = uy
@@ -139,10 +154,15 @@ def feedback(data):
 		q3 = data.pose.pose.orientation.z
 		roll0, pitch0, yaw0 = quaternion_to_euler(q0, q1, q2, q3)
 		flag_initialize = False
+		rospy.loginfo('Initialized')
 
-	x = data.pose.pose.position.x*K_surface - x0
-	y = data.pose.pose.position.y*K_surface - y0
+	xm = data.pose.pose.position.x*K_surface - x0
+	ym = data.pose.pose.position.y*K_surface - y0
 	z = data.pose.pose.position.z*K_surface - z0
+
+	x = xm*cos(yaw0) + ym*sin(yaw0)
+	y = -xm*sin(yaw0) + ym*cos(yaw0)
+
 	vx = data.twist.twist.linear.x*K_surface
 	vy = data.twist.twist.linear.y*K_surface
 	vz = data.twist.twist.linear.z*K_surface
