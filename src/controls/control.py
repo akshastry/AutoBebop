@@ -13,9 +13,9 @@ flag_land = False
 K_surface = 1.0
 
 # P gains
-kpx = 0.25
-kpy = 0.25
-kpz = 0.6
+kpx = 0.3
+kpy = 0.3
+kpz = 0.4
 kp_yaw = 0.3
 
 # D gains
@@ -33,8 +33,8 @@ x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
 yaw_ac = 2.0*(3.14/180.0)
 
 # desired state values, current state should move towards this
-xd = 0.0
-yd = 0.0
+xd = 1.0
+yd = -1.0
 zd = 0.0
 yawd = 0.0*(3.14/180.0)
 
@@ -63,6 +63,13 @@ def control():
 	ux = kpx * (errxb) - kdx * vx
 	uy = kpy * (erryb) - kdy * vy
 	uz = kpz * (errzb) - kdz * vz
+	# ux = kpx * (errx) - kdx * vx
+	# uy = kpy * (erry) - kdy * vy
+	# uz = kpz * (errz) - kdz * vz
+
+	# rospy.loginfo('xd %f \t x %f \t ux %f',xd,x,ux)
+	# rospy.loginfo('yd %f \t y %f \t uy %f',yd,y,uy)
+	# rospy.loginfo('zd %f \t z %f \t uz %f',zd,z,uz)
 
 	#if (ux > 0.3):
 	#	ux = 0.3
