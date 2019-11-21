@@ -42,7 +42,7 @@ yawd = 0.0*(3.14/180.0)
 ctrl = Twist()
 pose_in = Odometry()
 
-A = 0.5
+A = 1.0
 T = 10.0
 omega = 2.0*3.14/T
 
@@ -54,10 +54,10 @@ def control():
 	t = rospy.get_time() - t0
 
 	########### for recording bag purposes ############
-	xd = A * sin(omega*t)
-	yd = A * cos(omega*t) - A
-	zd = 0.5
-	yawd = 0.0 * 1.0 * A * sin(omega*t)
+	yd = A * sin(omega*t)
+	# yd = A * cos(omega*t) - A
+	zd = 0.25
+	# yawd = 0.0 * 1.0 * A * sin(omega*t)
 
 	errx = xd - x
 	erry = yd - y

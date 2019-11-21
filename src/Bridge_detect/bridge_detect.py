@@ -179,12 +179,12 @@ def scaleImage(frame):
 
 def getEdges(frame):
     #find edges in image
-    frame = cv2.Canny(frame,0,50) #tune second parameter for more/less agressive detection
+    frame = cv2.Canny(frame,0,200) #tune second parameter for more/less agressive detection
     return frame
 
 def firstDilate(frame):
     #dilate/erode edges
-    kernel = np.ones((15,15), np.uint8)
+    kernel = np.ones((8,8), np.uint8)
     frame = cv2.dilate(frame, kernel, iterations=1)
     frame = cv2.bitwise_not(frame)
     # kernel = np.ones((12,12), np.uint8)
@@ -197,14 +197,14 @@ def featurelessThresh(frame):
     #simple threshhold on featureless areas; if featureless area is too dark, likely not bridge
 	frame[np.where(frame == 255)] = orig_frame[np.where(frame == 255)]
     #threshhold for high brightness featurelss areas
-	lower = 160 #lower threshhold value
+	lower = 100 #lower threshhold value
 	upper = 255 #upper threshhold value
 	frame = cv2.inRange(frame, lower, upper)
    	#dilate/erode edges
-	kernel = np.ones((25,25), np.uint8)
-	frame = cv2.dilate(frame, kernel, iterations=1) 
-	kernel = np.ones((25,25), np.uint8)
-	frame = cv2.erode(frame, kernel, iterations=1)
+	# kernel = np.ones((5,5), np.uint8)
+	# frame = cv2.dilate(frame, kernel, iterations=1) 
+	# kernel = np.ones((5,5), np.uint8)
+	# frame = cv2.erode(frame, kernel, iterations=1)
 	return frame
 
 def fillBridge(frame,areas,idxs,cntsSorted):

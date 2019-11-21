@@ -146,7 +146,10 @@ def pose_estimation():
 			(x1,y1) = kp1[img1_idx].pt
 			(x2,y2) = kp2[img2_idx].pt
 
-			if (abs(x1-x2)>4):
+			if (abs(x1-x2)>1.0):
+
+				rospy.loginfo('x1 %f \t x2 %f', x1, x2)
+				rospy.loginfo('y1 %f \t y2 %f', y1, y2)
 
 				vx_img = (x1-x2)/(fx*dt)
 				vy_img = (y1-y2)/(fy*dt)
@@ -154,44 +157,47 @@ def pose_estimation():
 				x = (x1 - cx)/fx
 				y = (y1 - cy)/fy
 
-				Vx = vel[1];
-				Vz = -vel[0]
-				z = -(-Vx + x*Vz)/vx_img
+				# Vx = vel[1];
+				# Vz = -0.0*vel[0]
+				# z = -(-Vx + x*Vz)/vx_img
+				Vx = vel[1]
+				z = abs(Vx/vx_img)
+				# rospy.loginfo('Vx %f \t vx_img %f \t z %f', Vx, vx_img, z)
 
-				if (z>0.2 and z<3.0):
-					# print(z)
+				# if (z<10.0):
+				# print(z)
 
-					X = x*z
-					Y = y*z
+				X = x*z
+				Y = y*z
 
-					list_u.append(x1)
-					list_v.append(y1)
+				list_u.append(x1)
+				list_v.append(y1)
 
-					list_X_t.append(X)
-					list_Y_t.append(Y)
-					list_z.append(z)
+				list_X_t.append(X)
+				list_Y_t.append(Y)
+				list_z.append(z)
 
-					list_vx_img.append(vx_img)
-					list_vy_img.append(vy_img)
+				list_vx_img.append(vx_img)
+				list_vy_img.append(vy_img)
 
-					z_c = np.clip(int(z*30.0), 0, 120)
-					color_hsv = np.uint8([[[z_c,255,255]]]) 
-					color_bgr = cv2.cvtColor(color_hsv, cv2.COLOR_HSV2BGR)
-					color_plot = (int(color_bgr[0][0][0]),int(color_bgr[0][0][1]),int(color_bgr[0][0][2]))
-					# color = (255, 0, 0) 
-					# print(color_plot)
+				z_c = np.clip(int(z*30.0), 0, 120)
+				color_hsv = np.uint8([[[z_c,255,255]]]) 
+				color_bgr = cv2.cvtColor(color_hsv, cv2.COLOR_HSV2BGR)
+				color_plot = (int(color_bgr[0][0][0]),int(color_bgr[0][0][1]),int(color_bgr[0][0][2]))
+				# color = (255, 0, 0) 
+				# print(color_plot)
 
-					cv2.circle(featured_img,(int(x1),int(y1)),3,color_plot,-1)
-					cv2.circle(wall_img,(int(x1),int(y1)),3,color_plot,-1)
-					cv2.arrowedLine(flow_img, (int(x2),int(y2)), (int(x1),int(y1)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
+				cv2.circle(featured_img,(int(x1),int(y1)),3,color_plot,-1)
+				cv2.circle(wall_img,(int(x1),int(y1)),3,color_plot,-1)
+				cv2.arrowedLine(flow_img, (int(x2),int(y2)), (int(x1),int(y1)), (0,0,255), thickness=3, line_type=8, shift=0, tipLength=0.5)
 
 		plot_image = cv2.drawMatches(img1,kp1,img2,kp2,matches_tm, None, flags=2)
 		temporally_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
 
-	flow_image = bridge.cv2_to_imgmsg(flow_img, "8UC3")
-	featured_image = bridge.cv2_to_imgmsg(featured_img, "8UC3")
+		flow_image = bridge.cv2_to_imgmsg(flow_img, "8UC3")
+		featured_image = bridge.cv2_to_imgmsg(featured_img, "8UC3")
 
-	if len(list_z)>60:
+	if len(list_z)>10:
 
 		U = np.asarray(list_u)
 		V = np.asarray(list_v)
@@ -367,7 +373,8 @@ def main():
 	pub_pose_wall_in = rospy.Publisher('/pose_wall_in', Odometry, queue_size=10)
 
 	rospy.Subscriber('/image_raw', Image, image_assign)
-	rospy.Subscriber('/pose_in', Odometry, get_odom)
+	rospy.Subscriber('/bebop/odom', Odometry, get_odom)
+	# rospy.Subscriber('/pose_in', Odometry, get_odom)
 
 	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
