@@ -17,8 +17,8 @@ import traceback
 bridge = CvBridge()
 
 # observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
-obs_factor_x = 1.0
-obs_factor_y = 1.0
+obs_factor_x = 1.3
+obs_factor_y = 1.3
 obs_factor_z = 1.0
 
 obs_offset_x = 0.0
@@ -292,7 +292,7 @@ def getBridgeWaypoints(orig_frame,slope,cX_bridge,cY_bridge):
     #quadrant 1
     if cY_bridge < height/2 and cX_bridge < width/2:
         if slope > 0:
-            signX = -1.0
+            signX = 1.0
             signY = -1.0
         if slope < 0:
             signX = 1.0
@@ -300,8 +300,8 @@ def getBridgeWaypoints(orig_frame,slope,cX_bridge,cY_bridge):
     #quadrant 2
     if cY_bridge < height/2 and cX_bridge > width/2:
         if slope > 0:
-            signX = -1.0
-            signY = 1.0
+            signX = 1.0
+            signY = -1.0
         if slope < 0:
             signX = -1.0
             signY = -1.0
@@ -355,8 +355,7 @@ def lowPassWaypoints(cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4,cX_bridge_p
     yb_b4 = B*yb_b4 + (1.0-B)*yb_b4_prev
     return cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4
 
-def lowPassTheta(theta,theta_prev):
-	B = 0.1
+def lowPassTheta(theta,theta_prev,B):
 	theta = B*theta + (1.0 - B)*theta_prev
 	return theta
 
@@ -398,7 +397,7 @@ def main():
 			#scale image if needed
 			frame = scaleImage(frame)
 			#frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-			#frame = cv2.flip(frame,0)
+			frame = cv2.flip(frame,1)
 			orig_frame = np.copy(frame)
 
 			#get edges of image
@@ -466,7 +465,7 @@ def main():
 
 			        #calculate angle
 			        theta = math.atan2((xb_past - xb_b4),(yb_past-yb_b4)) #radians
-			        theta = lowPassTheta(theta,theta_prev)
+			        theta = lowPassTheta(theta,theta_prev,.08)
 			        theta_prev = theta
 
 			        #pose
@@ -480,7 +479,6 @@ def main():
 		except Exception:
 			traceback.print_exc()
 			rospy.loginfo('Some error ocurred... in target_detect.py')
-
 
 		rate.sleep()
 
