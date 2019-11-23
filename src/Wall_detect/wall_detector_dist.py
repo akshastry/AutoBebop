@@ -32,6 +32,7 @@ pos = np.array([0.0, 0.0, 0.0])
 vel = np.array([0.0, 0.0, 0.0])
 quat = np.array([0.0, 0.0, 0.0, 1.0])
 
+vel_prev = np.array([0.0, 0.0, 0.0])
 pos_prev = np.array([0.0, 0.0, 0.0])
 
 # time stuff
@@ -148,46 +149,47 @@ def pose_estimation(dist):
 			(x1,y1) = kp1[img1_idx].pt
 			(x2,y2) = kp2[img2_idx].pt
 
-			# if (abs(x1-x2)>1):
+			# print(x1-x2)
+			if (abs(x1-x2)>4):
 
-			vx_img = (x1-x2)/(fx*dt)
-			vy_img = (y1-y2)/(fy*dt)
+				vx_img = (x1-x2)/(fx*dt)
+				vy_img = (y1-y2)/(fy*dt)
 
-			x = (x1 - cx)/fx
-			y = (y1 - cy)/fy
+				x = (x1 - cx)/fx
+				y = (y1 - cy)/fy
 
-			# Vx = vel[1];
-			# Vz = -vel[0]
-			dist_img = np.linalg.norm(np.array([[x1-x2],[y1-y2]]))
-			z = dist/dist_img
-			# rospy.loginfo('dist_img %f \t dist %f \t z %f',dist_img,dist,z)
+				# Vx = vel[1];
+				# Vz = -vel[0]
+				dist_img = np.linalg.norm(np.array([[x1/fx-x2/fx],[y1/fy-y2/fy]]))
+				z = dist/dist_img
+				# rospy.loginfo('dist_img %f \t dist %f \t z %f',dist_img,dist,z)
 
-			# if (z>0.2 and z<3.0):
-			# print(z)
+				if (z>0.2 and z<3.0):
+					# print(z)
 
-			X = x*z
-			Y = y*z
+					X = x*z
+					Y = y*z
 
-			list_u.append(x1)
-			list_v.append(y1)
+					list_u.append(x1)
+					list_v.append(y1)
 
-			list_X_t.append(X)
-			list_Y_t.append(Y)
-			list_z.append(z)
+					list_X_t.append(X)
+					list_Y_t.append(Y)
+					list_z.append(z)
 
-			list_vx_img.append(vx_img)
-			list_vy_img.append(vy_img)
+					list_vx_img.append(vx_img)
+					list_vy_img.append(vy_img)
 
-			z_c = np.clip(int(z*30.0), 0, 120)
-			color_hsv = np.uint8([[[z_c,255,255]]]) 
-			color_bgr = cv2.cvtColor(color_hsv, cv2.COLOR_HSV2BGR)
-			color_plot = (int(color_bgr[0][0][0]),int(color_bgr[0][0][1]),int(color_bgr[0][0][2]))
-			# color = (255, 0, 0) 
-			# print(color_plot)
+					z_c = np.clip(int(z*30.0), 0, 120)
+					color_hsv = np.uint8([[[z_c,255,255]]]) 
+					color_bgr = cv2.cvtColor(color_hsv, cv2.COLOR_HSV2BGR)
+					color_plot = (int(color_bgr[0][0][0]),int(color_bgr[0][0][1]),int(color_bgr[0][0][2]))
+					# color = (255, 0, 0) 
+					# print(color_plot)
 
-			cv2.circle(featured_img,(int(x1),int(y1)),3,color_plot,-1)
-			cv2.circle(wall_img,(int(x1),int(y1)),3,color_plot,-1)
-			cv2.arrowedLine(flow_img, (int(x2),int(y2)), (int(x1),int(y1)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
+					cv2.circle(featured_img,(int(x1),int(y1)),3,color_plot,-1)
+					cv2.circle(wall_img,(int(x1),int(y1)),3,color_plot,-1)
+					cv2.arrowedLine(flow_img, (int(x2),int(y2)), (int(x1),int(y1)), (0,0,255), thickness=1, line_type=8, shift=0, tipLength=0.5)
 
 		plot_image = cv2.drawMatches(img1,kp1,img2,kp2,matches_tm, None, flags=2)
 		temporally_matched_featured_image = bridge.cv2_to_imgmsg(plot_image, "8UC3")
@@ -211,12 +213,17 @@ def pose_estimation(dist):
 		X_t = np.reshape(X_t,(-1,1))
 		Y_t = np.reshape(Y_t,(-1,1))
 		Z = np.reshape(Z,(-1,1))
+		# data = np.concatenate((X_t,Y_t,Z), axis = 1)
+		# print(data)
+		# P,res,inlier_no = ransac(data,3,10,2.0)
+		# plot_plane_fit(P, list_X_t, list_Y_t, list_z)
+		# roll_p, pitch_p, h = get_rph_from_plane(P)
 
-		YW_min = np.min(X_t)
-		YW_max = np.max(X_t)
+		# YW_min = np.min(X_t)
+		# YW_max = np.max(X_t)
 
-		ZW_min = np.max(Y_t)
-		ZW_max = np.min(Y_t)
+		# ZW_min = np.max(Y_t)
+		# ZW_max = np.min(Y_t)
 
 		# print(U)
 		U_min = int(np.min(U))
@@ -224,11 +231,27 @@ def pose_estimation(dist):
 		V_min = int(np.min(V))
 		V_max = int(np.max(V))
 
+		Wall_Z = np.mean(Z)
+		Wall_Upper = -Wall_Z*(V_min-cy)/fy + pos[2] + 0.7
+		Wall_Lower = -Wall_Z*(V_max-cy)/fy + pos[2] + 0.7
+		Wall_Right = Wall_Z*(U_max-cx)/fx
+		Wall_Left = Wall_Z*(U_min-cx)/fx
+
+		Wall_X = -0.5*(Wall_Right+Wall_Left)
+		Wall_Y = 0.5*(Wall_Upper+Wall_Lower)
+		
+		print(-Wall_Z*(V_max-cy)/fy)
+
+		if (Wall_Lower<1.8):
+			rospy.loginfo('Go Above and depth %f \t Lower Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
+		else:
+			rospy.loginfo('Go Below and depth %f \t Lower_Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
+
 		cv2.line(wall_img, (0,V_min), (width,V_min), (0,0,255), 2, cv2.LINE_AA) 
-		cv2.line(wall_img, (0,V_max), (width,V_max), (0,255,0), 2, cv2.LINE_AA) 
+		cv2.line(wall_img, (0,V_max), (width,V_max), (255,0,0), 2, cv2.LINE_AA) 
 
 		cv2.line(wall_img, (U_max,0), (U_max,height), (0,0,255), 2, cv2.LINE_AA) 
-		cv2.line(wall_img, (U_min,0), (U_min,height), (0,255,0), 2, cv2.LINE_AA) 
+		cv2.line(wall_img, (U_min,0), (U_min,height), (255,0,0), 2, cv2.LINE_AA) 
 
 		# plot_points(list_X_t, list_Y_t, list_z)
 
@@ -288,6 +311,76 @@ def ransac(data, min_pts, itern, threshDist):
     x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
     return [x, res, best_inlier_num]
 
+def get_rph_from_plane(P):
+	a = P[0]
+	b = P[1]
+	c = P[2]
+
+	p1x = np.array([0])
+	p1y = np.array([0])
+	p1z = -1.0/c
+
+	p2x = -1.0/a
+	p2y = np.array([0])
+	p2z = np.array([0])
+
+	p3x = np.array([0])
+	p3y = -1.0/b
+	p3z = np.array([0])
+
+	v1 = np.transpose(np.array([p2x-p1x, p2y-p1y, p2z-p1z]))[0]
+	v2 = np.transpose(np.array([p3x-p1x, p3y-p1y, p3z-p1z]))[0]
+
+	# print(v1)
+	# print(v2)
+	z = np.cross(v1,v2)
+	# print(z)
+	z_hat = z/np.linalg.norm(z)
+	# print(z_hat[0])
+
+	x_hat = v1/np.linalg.norm(v1)
+
+	y = np.cross(z_hat,x_hat)	
+	y_hat = y/np.linalg.norm(y)
+
+	Rot = R.from_dcm(np.transpose(np.array([x_hat,y_hat,z_hat])))
+	Euler = Rot.as_euler('zyx')
+
+	#camera angles
+	pitch = Euler[1]
+	roll = Euler[2]
+
+	# transform to body angles
+	roll = -pitch
+	pitch = -roll
+
+	h = 1.0/np.linalg.norm(P)
+
+	return roll, pitch, h
+
+def plot_plane_fit(P, list_X_t, list_Y_t, list_z):
+	a = P[0]
+	b = P[1]
+	c = P[2]
+	## plotting plane
+	x = np.linspace(-2,2,2)
+	y = np.linspace(-2,2,2)
+
+	X,Y = np.meshgrid(x,y)
+	Z = (-1.0 - a*X - b*Y) / c
+
+	fig = plt.figure()
+	# ax = fig.gca(projection='3d')
+	ax = fig.add_subplot(111, projection='3d')
+	ax.scatter(list_X_t, list_Y_t, list_z, color = "r")
+	ax.set_xlabel('X')
+	ax.set_ylabel('Y')
+	ax.set_zlabel('Z')
+	ax.set_zlim([0,3])
+
+	surf = ax.plot_surface(X, Y, Z, alpha=0.5)
+	plt.show()
+
 def image_assign(current_image):
 	global image, prev_image
 	# global t_old, dt
@@ -333,7 +426,7 @@ def skew(v):
 	return sk
 
 def get_odom(data):
-	global pos, vel, quat, r_in_b, pos_prev
+	global pos, vel, quat, r_in_b, pos_prev, vel_prev
 	global image, prev_image
 	global t_old, dt
 
@@ -351,9 +444,13 @@ def get_odom(data):
 	quat[2] = data.pose.pose.orientation.z
 	r_in_b = R.from_quat(quat)
 
-	if (abs(vel[1]) < 0.002):
-		rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
-		# time.sleep(0.3)
+	# print(vel[1])
+	# print(vel_prev[1])
+	# rospy.loginfo('v_y %f \t v_y_prev %f',vel[1],vel_prev[1])
+
+	if (np.sign(vel[1])!=np.sign(vel_prev[1])):
+
+		# rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
 
 		t = rospy.get_time()
 		dt = t - t_old
@@ -363,12 +460,35 @@ def get_odom(data):
 
 		pose_estimation(dist)
 
-		pos_prev = pos
+		pos_prev = np.copy(pos)
 
 		prev_image = image
 		t_old = t
 
-		time.sleep(4.0)
+	vel_prev = np.copy(vel)
+
+	# print(vel[1])
+
+	# if (abs(vel[1]) < 0.02):
+	# 	# flag_entering = True
+
+	# 	rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
+	# 	# time.sleep(0.3)
+
+	# 	t = rospy.get_time()
+	# 	dt = t - t_old
+
+	# 	dist = np.linalg.norm(pos-pos_prev)
+	# 	# print(dist)
+
+	# 	pose_estimation(dist)
+
+	# 	pos_prev = pos
+
+	# 	prev_image = image
+	# 	t_old = t
+
+	# 	time.sleep(4.0)
 
 def main():
 	rospy.init_node('wall_detect', anonymous=True)
@@ -382,7 +502,7 @@ def main():
 	pub_pose_wall_in = rospy.Publisher('/pose_wall_in', Odometry, queue_size=10)
 
 	rospy.Subscriber('/image_raw', Image, image_assign)
-	rospy.Subscriber('/pose_in', Odometry, get_odom)
+	rospy.Subscriber('/bebop/odom', Odometry, get_odom)
 
 	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():

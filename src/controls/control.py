@@ -42,6 +42,8 @@ yawd = 0.0*(3.14/180.0)
 ctrl = Twist()
 pose_in = Odometry()
 
+Trust_R = 0.5
+
 A = 0.5
 T = 10.0
 omega = 2.0*3.14/T
@@ -67,15 +69,20 @@ def control():
 	errx = xd - x
 	erry = yd - y
 
-	if (errx > 0.5):
-		errx = 0.5
-	if (erry > 0.5):
-		erry = 0.5
+	if (errx**2 + erry**2 > Trust_R**2)
+		heading = atan2(erry,errx)
+		errx = Trust_R*cos(heading)
+		erry = Trust_R*sin(heading)
 
-	if (errx < -0.5):
-		errx = -0.5
-	if (erry < -0.5):
-		erry = -0.5
+	# if (errx > 0.5):
+	# 	errx = 0.5
+	# if (erry > 0.5):
+	# 	erry = 0.5
+
+	# if (errx < -0.5):
+	# 	errx = -0.5
+	# if (erry < -0.5):
+	# 	erry = -0.5
 
 	if ( zd > 2.0):
 		zd = 2.0

@@ -367,7 +367,7 @@ def main():
 	pub_pose_wall_in = rospy.Publisher('/pose_wall_in', Odometry, queue_size=10)
 
 	rospy.Subscriber('/image_raw', Image, image_assign)
-	rospy.Subscriber('/pose_in', Odometry, get_odom)
+	rospy.Subscriber('/bebop/odom', Odometry, get_odom)
 
 	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
