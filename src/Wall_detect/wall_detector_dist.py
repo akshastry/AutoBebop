@@ -23,17 +23,30 @@ cy = 460*0.5
 # cx = 357.244818
 # cy = 192.270976
 
+# observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
+obs_factor_x = 1.0
+obs_factor_y = 1.0
+obs_factor_z = 1.0
+
+obs_offset_x = 0.0
+obs_offset_y = 0.0
+obs_offset_z = 0.0
 
 ## initialization of body to inertial rotation matrix
 r_in_b = R.from_euler('zyx', [0, 0, 0], degrees=True)
 
 # current state of quad
+pos_in = np.array([0.0, 0.0, 0.0])
 pos = np.array([0.0, 0.0, 0.0])
 vel = np.array([0.0, 0.0, 0.0])
 quat = np.array([0.0, 0.0, 0.0, 1.0])
+yaw = 0.0
 
 vel_prev = np.array([0.0, 0.0, 0.0])
 pos_prev = np.array([0.0, 0.0, 0.0])
+
+###
+Go_pos_b = np.array([0.0, 0.0, 0.0])
 
 # time stuff
 dt_L = 0.0
@@ -66,7 +79,7 @@ def pose_estimation(dist):
 	global temporally_matched_featured_image, flow_image, wall_image
 	global height, width, scale
 	global t_old, pos, quat, r_in_b
-	global pose_wall_in
+	global pose_wall_in, Go_pos_b
 
 	# frame_prev = frame
 	# frame_R_prev = frame_R
@@ -150,7 +163,7 @@ def pose_estimation(dist):
 			(x2,y2) = kp2[img2_idx].pt
 
 			# print(x1-x2)
-			if (abs(x1-x2)>4):
+			if (abs(x1-x2)>4 and abs(x1-x2)<cx and abs(y1-y2)<50):
 
 				vx_img = (x1-x2)/(fx*dt)
 				vy_img = (y1-y2)/(fy*dt)
@@ -164,7 +177,7 @@ def pose_estimation(dist):
 				z = dist/dist_img
 				# rospy.loginfo('dist_img %f \t dist %f \t z %f',dist_img,dist,z)
 
-				if (z>0.2 and z<3.0):
+				if (z>0.5 and z<3.0):
 					# print(z)
 
 					X = x*z
@@ -232,20 +245,31 @@ def pose_estimation(dist):
 		V_max = int(np.max(V))
 
 		Wall_Z = np.mean(Z)
-		Wall_Upper = -Wall_Z*(V_min-cy)/fy + pos[2] + 0.7
-		Wall_Lower = -Wall_Z*(V_max-cy)/fy + pos[2] + 0.7
+		Wall_Upper = -Wall_Z*(V_min-cy)/fy + pos_in[2]
+		Wall_Lower = -Wall_Z*(V_max-cy)/fy + pos_in[2]
 		Wall_Right = Wall_Z*(U_max-cx)/fx
 		Wall_Left = Wall_Z*(U_min-cx)/fx
 
 		Wall_X = -0.5*(Wall_Right+Wall_Left)
 		Wall_Y = 0.5*(Wall_Upper+Wall_Lower)
 		
-		print(-Wall_Z*(V_max-cy)/fy)
+		# print(-Wall_Z*(V_max-cy)/fy)
 
-		if (Wall_Lower<1.8):
+		if (Wall_Lower<0.0):
 			rospy.loginfo('Go Above and depth %f \t Lower Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
+			Go_pos_b[0] = Wall_Z
+			Go_pos_b[1] = Wall_X
+			Go_pos_b[2] = 0.5*(2.0-Wall_Upper)
+
 		else:
 			rospy.loginfo('Go Below and depth %f \t Lower_Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
+			Go_pos_b[0] = Wall_Z
+			Go_pos_b[1] = Wall_X
+			Go_pos_b[2] = 0.5*(Wall_Lower)
+		
+		Go_pos_in = pose_b2in(Go_pos_b)
+
+		# rospy.loginfo('Wall depth %f \t Lower_Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
 
 		cv2.line(wall_img, (0,V_min), (width,V_min), (0,0,255), 2, cv2.LINE_AA) 
 		cv2.line(wall_img, (0,V_max), (width,V_max), (255,0,0), 2, cv2.LINE_AA) 
@@ -256,6 +280,45 @@ def pose_estimation(dist):
 		# plot_points(list_X_t, list_Y_t, list_z)
 
 		wall_image = bridge.cv2_to_imgmsg(wall_img, "8UC3")
+
+def pose_b2in(pose_rel):
+	global pos_in, yaw, quat
+	global pub_pose_wall_in
+
+	# scaling and offset
+	x_obj_rel_b = obs_factor_x * pose_rel[0] + obs_offset_x
+	y_obj_rel_b = obs_factor_y * pose_rel[1] + obs_offset_y
+	z_obj_rel_b = obs_factor_z * pose_rel[2] + obs_offset_z
+
+	# rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
+
+	# body to inertial frame rotation transform
+	x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
+	y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
+	z_obj_rel_in = z_obj_rel_b
+
+	# inertial frame shift transform
+	x_obj = pos_in[0] + x_obj_rel_in
+	y_obj = pos_in[1] + y_obj_rel_in
+	z_obj = pos_in[2] + z_obj_rel_in
+
+	pose_wall_in.header.frame_id = "odom"
+	pose_wall_in.child_frame_id = "base_link"
+	pose_wall_in.header.stamp = rospy.get_rostime()
+	pose_wall_in.pose.pose.position.x = x_obj
+	pose_wall_in.pose.pose.position.y = y_obj
+	pose_wall_in.pose.pose.position.z = z_obj
+	pose_wall_in.twist.twist.linear.x = 0.0
+	pose_wall_in.twist.twist.linear.y = 0.0
+	pose_wall_in.twist.twist.linear.z = 0.0
+	pose_wall_in.pose.pose.orientation.w = quat[3]
+	pose_wall_in.pose.pose.orientation.x = quat[0]
+	pose_wall_in.pose.pose.orientation.y = quat[1]
+	pose_wall_in.pose.pose.orientation.z = quat[2]
+
+	pub_pose_wall_in.publish(pose_wall_in)
+
+	rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj, y_obj, z_obj)
 
 def plot_points(list_X_t, list_Y_t, list_z):
 
@@ -270,116 +333,6 @@ def plot_points(list_X_t, list_Y_t, list_z):
 
 	plt.show()
 
-def ransac(data, min_pts, itern, threshDist):
-    d_sh = data.shape
-    num_pts = d_sh[0]
-    num_param = d_sh[1]
-#     bestInNum = 0
-    bestParam = np.zeros(num_param)
-    best_inlier_num = 0
-    for i in range(itern):
-        sample = np.random.permutation(data)[:min_pts,:]
-        A = sample
-        b = -np.ones((len(sample),1))
-        x = np.linalg.lstsq(A,b, rcond=None)[0]
-        # print(x)
-        inlier_pts = []
-        num_inlier = 0
-        for j in range(num_pts):
-			A_pt = data[j,:]
-			b_pt = -1.0
-			dist = abs(np.dot(A_pt,x)-b_pt)/np.linalg.norm(x)
-			# print(dist)
-			if(dist <= threshDist):
-				inlier_pts.append(data[j,:])
-				num_inlier = num_inlier+1
-                
-#         for j in range(num_inlier):
-#             inlier_pts = np.array(inlier_pts)
-#             A = np.concatenate((inlier_pts[:,:-1], np.ones((len(inlier_pts),1))), axis = 1)
-#             b = inlier_pts[:,-1]
-#             x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
-        if(num_inlier > best_inlier_num):
-            best_inlier_num = num_inlier
-            bestParam = x
-            best_inlier_pts = inlier_pts
-            
-    # print(best_inlier_pts)
-    best_inlier_pts = np.array(best_inlier_pts)
-    A = best_inlier_pts
-    b = -np.ones((len(best_inlier_pts),1))
-    x,res,_,_ = np.linalg.lstsq(A,b, rcond=None)
-    return [x, res, best_inlier_num]
-
-def get_rph_from_plane(P):
-	a = P[0]
-	b = P[1]
-	c = P[2]
-
-	p1x = np.array([0])
-	p1y = np.array([0])
-	p1z = -1.0/c
-
-	p2x = -1.0/a
-	p2y = np.array([0])
-	p2z = np.array([0])
-
-	p3x = np.array([0])
-	p3y = -1.0/b
-	p3z = np.array([0])
-
-	v1 = np.transpose(np.array([p2x-p1x, p2y-p1y, p2z-p1z]))[0]
-	v2 = np.transpose(np.array([p3x-p1x, p3y-p1y, p3z-p1z]))[0]
-
-	# print(v1)
-	# print(v2)
-	z = np.cross(v1,v2)
-	# print(z)
-	z_hat = z/np.linalg.norm(z)
-	# print(z_hat[0])
-
-	x_hat = v1/np.linalg.norm(v1)
-
-	y = np.cross(z_hat,x_hat)	
-	y_hat = y/np.linalg.norm(y)
-
-	Rot = R.from_dcm(np.transpose(np.array([x_hat,y_hat,z_hat])))
-	Euler = Rot.as_euler('zyx')
-
-	#camera angles
-	pitch = Euler[1]
-	roll = Euler[2]
-
-	# transform to body angles
-	roll = -pitch
-	pitch = -roll
-
-	h = 1.0/np.linalg.norm(P)
-
-	return roll, pitch, h
-
-def plot_plane_fit(P, list_X_t, list_Y_t, list_z):
-	a = P[0]
-	b = P[1]
-	c = P[2]
-	## plotting plane
-	x = np.linspace(-2,2,2)
-	y = np.linspace(-2,2,2)
-
-	X,Y = np.meshgrid(x,y)
-	Z = (-1.0 - a*X - b*Y) / c
-
-	fig = plt.figure()
-	# ax = fig.gca(projection='3d')
-	ax = fig.add_subplot(111, projection='3d')
-	ax.scatter(list_X_t, list_Y_t, list_z, color = "r")
-	ax.set_xlabel('X')
-	ax.set_ylabel('Y')
-	ax.set_zlabel('Z')
-	ax.set_zlim([0,3])
-
-	surf = ax.plot_surface(X, Y, Z, alpha=0.5)
-	plt.show()
 
 def image_assign(current_image):
 	global image, prev_image
@@ -426,7 +379,7 @@ def skew(v):
 	return sk
 
 def get_odom(data):
-	global pos, vel, quat, r_in_b, pos_prev, vel_prev
+	global pos, vel, pos_prev, vel_prev
 	global image, prev_image
 	global t_old, dt
 
@@ -437,12 +390,6 @@ def get_odom(data):
 	vel[0] = data.twist.twist.linear.x
 	vel[1] = data.twist.twist.linear.y
 	vel[2] = data.twist.twist.linear.z
-
-	quat[3] = data.pose.pose.orientation.w
-	quat[0] = data.pose.pose.orientation.x
-	quat[1] = data.pose.pose.orientation.y
-	quat[2] = data.pose.pose.orientation.z
-	r_in_b = R.from_quat(quat)
 
 	# print(vel[1])
 	# print(vel_prev[1])
@@ -490,6 +437,23 @@ def get_odom(data):
 
 	# 	time.sleep(4.0)
 
+def get_pose_in(data):
+	global pos_in, quat, r_in_b, yaw
+
+	pos_in[0] = data.pose.pose.position.x
+	pos_in[1] = data.pose.pose.position.y
+	pos_in[2] = data.pose.pose.position.z
+
+	quat[3] = data.pose.pose.orientation.w
+	quat[0] = data.pose.pose.orientation.x
+	quat[1] = data.pose.pose.orientation.y
+	quat[2] = data.pose.pose.orientation.z
+	# r_in_b = R.from_quat(quat)
+	roll, pitch, yaw = quaternion_to_euler(quat[3], quat[0], quat[1], quat[2])
+
+
+pub_pose_wall_in = rospy.Publisher('/pose_wall_in', Odometry, queue_size=10)
+
 def main():
 	rospy.init_node('wall_detect', anonymous=True)
 
@@ -499,9 +463,8 @@ def main():
 	pub_flow_image = rospy.Publisher('/flow_image', Image, queue_size=10)
 	pub_wall_image = rospy.Publisher('/wall_image', Image, queue_size=10)
 
-	pub_pose_wall_in = rospy.Publisher('/pose_wall_in', Odometry, queue_size=10)
-
 	rospy.Subscriber('/image_raw', Image, image_assign)
+	rospy.Subscriber('/pose_in', Odometry, get_pose_in)
 	rospy.Subscriber('/bebop/odom', Odometry, get_odom)
 
 	rate = rospy.Rate(10)
