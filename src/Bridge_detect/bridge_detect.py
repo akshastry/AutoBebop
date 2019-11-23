@@ -17,11 +17,11 @@ import traceback
 bridge = CvBridge()
 
 # observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
-obs_factor_x = 1.3
-obs_factor_y = 1.3
+obs_factor_x = 1.8
+obs_factor_y = 1.8
 obs_factor_z = 1.0
 
-obs_offset_x = 0.0
+obs_offset_x = -0.4
 obs_offset_y = 0.0
 obs_offset_z = 0.0
 
@@ -337,6 +337,13 @@ def getBridgeWaypoints(orig_frame,slope,cX_bridge,cY_bridge):
 def pixel2meters(cX_bridge,cY_bridge,x_past,y_past,x_b4,y_b4):
     scale = 2.1
     #make coordinates relative to center in body frame, scaled to meters
+
+    #Camera Parameters
+    fx = 300
+    fy = 300
+    cam_cx = width/2.0
+    cam_cy = height/2.0
+
     cX_bridge = -(cX_bridge - width/2.0)/width*scale
     cY_bridge = -(cY_bridge - width/2.0)/width*scale
     xb_b4 = -(x_b4 - width/2.0)/width*scale
@@ -346,7 +353,7 @@ def pixel2meters(cX_bridge,cY_bridge,x_past,y_past,x_b4,y_b4):
     return cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4 
 
 def lowPassWaypoints(cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4,cX_bridge_prev,cY_bridge_prev,xb_past_prev,yb_past_prev,xb_b4_prev,yb_b4_prev):
-    B = 0.1 #lp filter parameter
+    B = 0.5 #lp filter parameter
     cX_bridge = B*cX_bridge + (1.0-B)*cX_bridge_prev
     cY_bridge = B*cY_bridge + (1.0-B)*cY_bridge_prev
     xb_past = B*xb_past + (1.0-B)*xb_past_prev
@@ -478,7 +485,7 @@ def main():
 
 		except Exception:
 			traceback.print_exc()
-			rospy.loginfo('Some error ocurred... in target_detect.py')
+			rospy.loginfo('Some error ocurred... in bridge_detect.py')
 
 		rate.sleep()
 

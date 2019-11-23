@@ -42,7 +42,7 @@ yawd = 0.0*(3.14/180.0)
 ctrl = Twist()
 pose_in = Odometry()
 
-A = 1.0
+A = 0.5
 T = 10.0
 omega = 2.0*3.14/T
 
@@ -54,13 +54,29 @@ def control():
 	t = rospy.get_time() - t0
 
 	########### for recording bag purposes ############
-	yd = A * sin(omega*t)
+	# yd = A * sin(omega*t)
+	# if (yd>0.0):
+	# 	yd = A
+	# else:
+	# 	yd = -A
+
 	# yd = A * cos(omega*t) - A
-	zd = 0.25
+	# zd = 0.0
 	# yawd = 0.0 * 1.0 * A * sin(omega*t)
 
 	errx = xd - x
 	erry = yd - y
+
+	if (errx > 0.5):
+		errx = 0.5
+	if (erry > 0.5):
+		erry = 0.5
+
+	if (errx < -0.5):
+		errx = -0.5
+	if (erry < -0.5):
+		erry = -0.5
+
 	if ( zd > 2.0):
 		zd = 2.0
 		rospy.loginfo('Ceiling reached')
