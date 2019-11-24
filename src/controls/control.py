@@ -44,7 +44,7 @@ pose_in = Odometry()
 
 Trust_R = 0.5
 
-A = 0.2
+A = 0.3
 T = 10.0
 omega = 2.0*3.14/T
 
@@ -56,14 +56,14 @@ def control():
 	t = rospy.get_time() - t0
 
 	########### for recording bag purposes ############
-	yd = A * sin(omega*t)
+	# yd = A * sin(omega*t)
 	# if (yd>0.0):
 	# 	yd = A
 	# else:
 	# 	yd = -A
 
 	# yd = A * cos(omega*t) - A
-	zd = 0.25
+	# zd = 0.25
 	# yawd = 0.0 * 1.0 * A * sin(omega*t)
 
 	errx = xd - x

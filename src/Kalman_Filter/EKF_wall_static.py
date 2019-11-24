@@ -5,6 +5,11 @@ from math import atan2, sin, cos, asin, acos
 import numpy as np
 from nav_msgs.msg import Odometry
 
+q0 = 1.0
+q1 = 0.0
+q2 = 0.0
+q3 = 0.0
+
 
 def euler_to_quaternion(roll, pitch, yaw):
 
@@ -43,14 +48,14 @@ X_k = np.zeros(3)
 
 # Covariances
 Q = np.zeros((3,3))
-Q[0,0] = 10**(-3)
-Q[1,1] = 10**(-3)
-Q[2,2] = 10**(-3)
+Q[0,0] = 10**(-4)
+Q[1,1] = 10**(-4)
+Q[2,2] = 10**(-4)
 # Q[3,3] = 10**(-7)
 
 R = np.zeros((3,3))
-R[0,0] = 10**(-2)
-R[1,1] = 10**(-2)
+R[0,0] = 10**(-1)
+R[1,1] = 10**(-1)
 R[2,2] = 10**(-1)
 # R[3,3] = 10**(-3)
 
@@ -109,7 +114,7 @@ def main():
 	# time.sleep(5.0)
 
 	# rospy.Subscriber('/bebop/odom', Odometry, odom_callback)
-	rospy.Subscriber('/pose_wall_n', Odometry, target_callback)
+	rospy.Subscriber('/pose_wall_in', Odometry, target_callback)
 
 	# time.sleep(1.0)
 
@@ -141,16 +146,11 @@ def main():
 		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
 		
 		print(np.linalg.norm(pose_EKF.pose.covariance))
-		if (np.linalg.norm(pose_EKF.pose.covariance)<0.02):
+		if (np.linalg.norm(pose_EKF.pose.covariance)<0.006):
 			pub.publish(pose_EKF)
+			rospy.loginfo('Go to x %f \t y %f \t z %f', X_k[0], X_k[1], X_k[2])
 
 		rate.sleep()
-		
-		
-
-
-
-
 
 
 if __name__ == '__main__':
