@@ -241,29 +241,31 @@ def getBridgeCenter(frame):
     corner_sort_x = [corners[i,0,0] for i in idxs]
     corner_sort_y = [corners[i,0,1] for i in idxs]
     #now sort x values accordingly
-    if corner_sort_x[0]>corner_sort_x[1]:
-        hold_x = corner_sort_x[0]
-        hold_y = corner_sort_y[0]
-        corner_sort_x[0] = corner_sort_x[1]
-        corner_sort_x[1] = hold_x
-        corner_sort_y[0] = corner_sort_y[1]
-        corner_sort_y[1] = hold_y
-    if corner_sort_x[3]>corner_sort_x[2]:
-        hold_x = corner_sort_x[2]
-        hold_y = corner_sort_y[2]
-        corner_sort_x[2] = corner_sort_x[3]
-        corner_sort_x[3] = hold_x
-        corner_sort_y[2] = corner_sort_y[3]
-        corner_sort_y[3] = hold_y
+    if len(idxs)>3:
+	    if corner_sort_x[0]>corner_sort_x[1]:
+	        hold_x = corner_sort_x[0]
+	        hold_y = corner_sort_y[0]
+	        corner_sort_x[0] = corner_sort_x[1]
+	        corner_sort_x[1] = hold_x
+	        corner_sort_y[0] = corner_sort_y[1]
+	        corner_sort_y[1] = hold_y
+	    if corner_sort_x[3]>corner_sort_x[2]:
+	        hold_x = corner_sort_x[2]
+	        hold_y = corner_sort_y[2]
+	        corner_sort_x[2] = corner_sort_x[3]
+	        corner_sort_x[3] = hold_x
+	        corner_sort_y[2] = corner_sort_y[3]
+	        corner_sort_y[3] = hold_y
 
     #find center and orientation of bridge
-    cX_bridge = int(np.sum(corner_sort_x)/4)
-    cY_bridge = int(np.sum(corner_sort_y)/4)
+    cX_bridge = int(np.sum(corner_sort_x)/len(idxs))
+    cY_bridge = int(np.sum(corner_sort_y)/len(idxs))
     center_bridge = (cX_bridge,cY_bridge)
-    d1 = math.sqrt((corner_sort_x[1] - corner_sort_x[0])**2 + (corner_sort_y[1] - corner_sort_y[0])**2)
-    d2 = math.sqrt((corner_sort_x[3] - corner_sort_x[0])**2 + (corner_sort_y[3] - corner_sort_y[0])**2)
-    d3 = math.sqrt((corner_sort_x[3] - corner_sort_x[2])**2 + (corner_sort_y[3] - corner_sort_y[2])**2)
-    d4 = math.sqrt((corner_sort_x[2] - corner_sort_x[1])**2 + (corner_sort_y[2] - corner_sort_y[1])**2)
+    if len(idxs)>3:
+	    d1 = math.sqrt((corner_sort_x[1] - corner_sort_x[0])**2 + (corner_sort_y[1] - corner_sort_y[0])**2)
+	    d2 = math.sqrt((corner_sort_x[3] - corner_sort_x[0])**2 + (corner_sort_y[3] - corner_sort_y[0])**2)
+	    d3 = math.sqrt((corner_sort_x[3] - corner_sort_x[2])**2 + (corner_sort_y[3] - corner_sort_y[2])**2)
+	    d4 = math.sqrt((corner_sort_x[2] - corner_sort_x[1])**2 + (corner_sort_y[2] - corner_sort_y[1])**2)
     #check if bridge is at top or bottom of frame
     if np.sum(frame[0,:])>0:
     	slope = 100000

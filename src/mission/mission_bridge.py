@@ -33,7 +33,7 @@ yawd = 0.0
 x_obj = y_obj = z_obj = 0.0
 
 # initial target location and covariance
-x_srch = 0.0
+x_srch = 1.0
 y_srch = 0.0
 cox_x = 0.0
 cov_y = 0.0
@@ -41,6 +41,23 @@ cov_y = 0.0
 mission_no = 0
 
 def search():
+	print("searching...")
+	global xd, yd, zd, x_target, y_target, mission_no
+	global t, t_search_start, t_search
+	global phase
+
+	xd = x_srch
+	yd = y_srch
+	zd = 0.25
+
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
+		mission_no = 1
+		t_search_start = t
+		print('switching to mission water')
+
+	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+
+def search_water():
 	print("searching for bridge...")
 	global xd, yd, zd, x_target, y_target
 	global t, t_search_start, t_search
@@ -54,7 +71,7 @@ def search():
 	t_search = t - t_search_start
 	# rospy.loginfo('t_search %f', t_search)
 
-	yd = 0.1*t_search
+	yd = 0.2*t_search
 	if (yd > 3.0):
 		yd = 3.0
 	elif(yd < -3.0):
@@ -71,8 +88,8 @@ def converge():
 	yd = y_obj
 	zd = 0.25
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
-		mission_no = 2
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
+		mission_no = 3
 
 def cross():
 	print("crossing the bridge...")
@@ -84,13 +101,13 @@ def cross():
 	zd = 0.25
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
-		mission_no = 3
+		mission_no = 4
 
 def land():
 	print("landing...")
 	global mission_no, flag_land, pub_l
 	flag_land = True
-	mission_no = 4
+	mission_no = 5
 
 	pub_l.publish()
 	time.sleep(1.0)
@@ -107,9 +124,10 @@ def default():
 
 switcher = {
 	0: search,
-	1: converge,
-	2: cross,
-	3: land
+	1: search_water,
+	2: converge,
+	3: cross,
+	4: land
 }
 
 def waypoint_gen():
@@ -154,10 +172,10 @@ def quaternion_to_euler(w, x, y, z):
 def target_feedback(data):
 	global x_obj, y_obj, z_obj, mission_no
 
-	if(mission_no == 0):
-		mission_no = 1
-
 	if(mission_no == 1):
+		mission_no = 2
+
+	if(mission_no == 2):
 		x_obj = data.pose.pose.position.x
 		y_obj = data.pose.pose.position.y
 		z_obj = data.pose.pose.position.z
