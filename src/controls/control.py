@@ -13,9 +13,9 @@ flag_land = False
 K_surface = 1.0
 
 # P gains
-kpx = 0.3
-kpy = 0.3
-kpz = 0.3
+kpx = 0.35
+kpy = 0.35
+kpz = 0.4
 kp_yaw = 0.3
 
 # D gains
@@ -87,8 +87,8 @@ def control():
 	if ( zd > 2.0):
 		zd = 2.0
 		rospy.loginfo('Ceiling reached')
-	if ( zd < -0.25):
-		zd = -0.25
+	if ( zd < -0.4):
+		zd = -0.4
 		rospy.loginfo('Floor reached')
 	errz = zd - z
 

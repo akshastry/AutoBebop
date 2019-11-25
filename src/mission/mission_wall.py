@@ -71,7 +71,7 @@ def converge():
 	yd = y_obj
 	zd = z_obj
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
 		rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + 0.8, y_obj, z_obj)
 		usr_in = raw_input('Should I cross? :( :')
 		if(usr_in=="1"):

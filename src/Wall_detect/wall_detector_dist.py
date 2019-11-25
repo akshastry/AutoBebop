@@ -255,17 +255,16 @@ def pose_estimation(dist):
 		
 		# print(-Wall_Z*(V_max-cy)/fy)
 
-		if (Wall_Lower<0.0):
+		if (Wall_Lower<-0.1):
 			rospy.loginfo('Go Above and depth %f \t Lower Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
 			Go_pos_b[0] = Wall_Z
 			Go_pos_b[1] = 1.0*Wall_X
 			Go_pos_b[2] = Wall_Upper + 0.5
-
 		else:
 			rospy.loginfo('Go Below and depth %f \t Lower_Edge %f \t Upper_Edge %f \t Lateral shift %f',Wall_Z, Wall_Lower, Wall_Upper, Wall_X)
 			Go_pos_b[0] = Wall_Z
 			Go_pos_b[1] = 1.0*Wall_X
-			Go_pos_b[2] = 0.5*(Wall_Lower)
+			Go_pos_b[2] = Wall_Lower - 0.7
 		
 		Go_pos_in = pose_b2in(Go_pos_b)
 
