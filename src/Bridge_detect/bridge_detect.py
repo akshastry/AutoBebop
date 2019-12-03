@@ -112,7 +112,7 @@ def get_pose(cX_bridge,cY_bridge,theta):
 	pose_rel.header.stamp = rospy.get_rostime()
 	pose_rel.pose.pose.position.x = -cX_bridge
 	pose_rel.pose.pose.position.y = -cY_bridge
-	pose_rel.pose.pose.position.z = 0.0
+	pose_rel.pose.pose.position.z = 1.25
 	pose_rel.twist.twist.linear.x = 0.0
 	pose_rel.twist.twist.linear.y = 0.0
 	pose_rel.twist.twist.linear.z = 0.0
