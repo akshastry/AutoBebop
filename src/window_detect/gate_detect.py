@@ -210,18 +210,30 @@ def pose_solve(cluster_mean):
 	    #                                (0,0,.43),
 	    #                        ])
 
-		focal_length_x = 743.595409 #get from camera calibration
-		focal_length_y = 750.175831 #get from camera calibration
+		# focal_length_x = 743.595409 #get from camera calibration
+		# focal_length_y = 750.175831 #get from camera calibration
+		
+		###### with larger FOV setting ############
+		# focal_length_x = 353.939474 #get from camera calibration
+		# focal_length_y = 353.169928 #get from camera calibration
+		
+		focal_length_x = 256.089233 #get from camera calibration
+		focal_length_y = 299.638275 #get from camera calibration
+		
 		size = frame.shape
 		center = (size[1]/2, size[0]/2)
 		# print(scale)
 		# center = (scale*357.244818, scale*192.270976)
+		# center = (scale*313.280662, scale*225.264003)
+		# center = (scale*309.118667, scale*218.854947)
+		
 		camera_matrix = np.array(
 								[[focal_length_x, 0, center[0]],
 								[0, focal_length_y, center[1]],
 								[0, 0, 1]], dtype = "double"
 								)
-		dist_coeffs = np.array([-0.337798, 0.142319, 0.001475, 0.003604, 0.0]) #get from camera calibration
+		# dist_coeffs = np.array([-0.337798, 0.142319, 0.001475, 0.003604, 0.0]) #get from camera calibration
+		dist_coeffs = np.array([-0.271345, 0.06, -0.000446, -0.000109, 0.0]) #get from camera calibration
 
 		(success, rotation_pnp, translation_pnp) = cv2.solvePnP(model_points_yellow, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 		#returns a rotation and translation matrix of the extrinsic matrix of the camera 
