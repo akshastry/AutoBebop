@@ -11,6 +11,8 @@ from cv_bridge import CvBridge, CvBridgeError
 
 bridge = CvBridge()
 
+master_mission_no = 8
+
 # observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
 obs_factor_x = 1.0
 obs_factor_y = 1.0
@@ -73,7 +75,7 @@ def thresholding():
 
 	gray_img = frame.copy()
 
-	lower = (150) #lower threshhold values (H, S, V)
+	lower = (235) #lower threshhold values (H, S, V)
 	upper = (255) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
@@ -127,16 +129,54 @@ def get_circle(frame):
 	else:
 		return False
 
-def get_pose():
+def get_square(frame):
+	global a, cx, cy
+	global img, circles_image, circle_avg_image
+
+	circles = cv2.HoughCircles(frame,cv2.HOUGH_GRADIENT,1,1,
+                            param1=100,param2=42,minRadius=0,maxRadius=0)
+
+	a = []
+	cx = []
+	cy = []
+	img1 = img.copy()
+	if circles is not None:
+		print(len(circles))
+		circles = np.uint16(np.around(circles))
+		for i in circles[0,:]:
+			# draw the outer circle
+			cv2.circle(img1,(i[0],i[1]),i[2],(0,255,0),2)
+			# draw the center of the circle
+			cv2.circle(img1,(i[0],i[1]),2,(0,0,255),3)
+
+			a.append(i[2])
+			cx.append(i[0])
+			cy.append(i[1])
+
+
+		a = np.average(a)
+		cx = np.average(cx)
+		cy = np.average(cy)
+
+		img2 = img.copy()
+		cv2.circle(img2,(cx.astype(int),cy.astype(int)),a.astype(int),(0,255,0),5)
+		cv2.circle(img2,(cx.astype(int),cy.astype(int)),2,(0,0,255),5)
+
+		circles_image = bridge.cv2_to_imgmsg(img1, "8UC3")
+		circle_avg_image = bridge.cv2_to_imgmsg(img2, "8UC3")
+
+		return True
+	else:
+		return False
+
+
+def get_pose(R):
 	global a, cx, cy
 	#Image coordinates
 	u1 = cx
 	v1 = cy
 	u2 = cx+a
 	v2 = cy
-
-	#Real world Info
-	R = 0.1
 
 	#Camera Parameters
 	fx = 300
@@ -188,7 +228,7 @@ def pose_cam2in():
 	rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
 
 	# body to inertial frame rotation transform
-	x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
+	x_obj_rel_in = x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
 	y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
 	z_obj_rel_in = z_obj_rel_b
 
@@ -267,9 +307,19 @@ def main():
 
 		try:
 			frame = thresholding()
-			circle_detected = get_circle(frame)
-			if (circle_detected):
-				get_pose()
+
+			if (master_mission_no == 5):
+				#Real world Info
+				R = 0.1
+				target_detected = get_circle(frame)
+
+			if (master_mission_no == 8):
+				#Real world Info
+				R = 0.17
+				target_detected = get_square(frame)
+
+			if (target_detected):
+				get_pose(R)
 				pose_cam2in()
 		except:
 			rospy.loginfo('Some error ocurred... in target_detect.py')

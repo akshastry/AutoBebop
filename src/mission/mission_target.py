@@ -6,6 +6,8 @@ from std_msgs.msg import String, Float64, Empty
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
+master_mission_no = 8
+
 flag_land = False
 pose_d_in = Odometry()
 
@@ -33,7 +35,7 @@ yawd = 0.0
 x_obj = y_obj = z_obj = 0.0
 
 # initial target location and covariance
-x_srch = 0.0
+x_srch = 1.0
 y_srch = 0.0
 cox_x = 0.0
 cov_y = 0.0
@@ -46,12 +48,9 @@ def search():
 	global t, t_search_start, t_search
 	global phase
 
-	xd = x_srch
-	yd = y_srch
+	# xd = x_srch
+	# yd = y_srch
 	zd = z
-
-	xd = x_srch
-	yd = y_srch
 
 	dt = 1/Hz
 	t_search = t - t_search_start
@@ -67,8 +66,8 @@ def search():
 		phase = phase + dt*(vel/DEN)
 	# rospy.loginfo('phase %f',phase)
 
-	xd = Amplitude_x*cos(phase)
-	yd = Amplitude_y*sin(phase)
+	xd = x_srch + Amplitude_x*cos(phase)
+	yd = y_srch + Amplitude_y*sin(phase)
 	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
@@ -77,8 +76,13 @@ def converge():
 	global r_ac, v_ac, x_obj, y_obj
 	xd = x_obj
 	yd = y_obj
-	zd = 0.0
-	zd = z_obj + 1.0
+
+	if (master_mission_no == 5):
+		zd = z_obj + 1.0
+
+	if (master_mission_no == 8):
+		zd = 0.0
+
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
 		mission_no = 2
 
