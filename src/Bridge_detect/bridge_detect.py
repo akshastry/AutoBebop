@@ -406,7 +406,7 @@ def main():
 			#scale image if needed
 			frame = scaleImage(frame)
 			#frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-			frame = cv2.flip(frame,1)
+			# frame = cv2.flip(frame,1)
 			orig_frame = np.copy(frame)
 
 			#get edges of image
