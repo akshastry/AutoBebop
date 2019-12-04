@@ -16,7 +16,7 @@ K_surface = 1.0
 kpx = 0.35
 kpy = 0.35
 kpz = 0.4
-kp_yaw = 0.3
+kp_yaw = 0.45
 
 # D gains
 kdx = 0.5

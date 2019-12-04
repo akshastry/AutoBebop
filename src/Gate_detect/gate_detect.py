@@ -15,10 +15,15 @@ from decimal import Decimal
 obs_factor_x = 1.0
 obs_factor_y = 1.0
 obs_factor_z = 1.0
+obs_factor_yaw = 1.0
 
 obs_offset_x = 0.0
-obs_offset_y = 0.0
-obs_offset_z = 0.0
+obs_offset_y = -0.50
+obs_offset_z = -0.36
+obs_offset_yaw = 0*(3.14/180.0)
+
+# current state of quad
+x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
 
 pose_rel = Odometry()
 
@@ -32,7 +37,28 @@ debug_image = Image()
 
 bridge = CvBridge()
 
-pose_target_in = Odometry()
+pose_gate_in = Odometry()
+
+def remove_distortion(img):
+	width  = img.shape[1]
+	height = img.shape[0]
+
+	dist_coeffs = np.array([-0.271345, 0.06, -0.000446, -0.000109, 0.0]) #get from camera calibration
+
+	# assume unit matrix for camera
+	cam = np.eye(3,dtype=np.float32)
+
+	cam[0,2] = width/2.0  # define center x
+	cam[1,2] = height/2.0 # define center y
+
+	focal_length_x = 353.939474 #get from camera calibration
+	focal_length_y = 353.169928 #get from camera calibration
+	cam[0,0] = focal_length_x        # define focal length x
+	cam[1,1] = focal_length_y        # define focal length y
+
+	img = cv2.undistort(img,cam,dist_coeffs)
+
+	return img
 
 def thresholding():
 	global raw_image, bin_image
@@ -44,27 +70,29 @@ def thresholding():
 	except CvBridgeError as e:
 		print(e)
 
+	img = remove_distortion(img)
+
+	img_orig = img.copy()
+
 	#Resize image
-	scale = .4
+	scale = 1.0
 	width = int(img.shape[1] * scale)
 	height = int(img.shape[0] * scale)
 	dim = (width, height) #can also just specify desired dimensions
-	frame = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+	# img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
 
-	img = frame.copy()
-	img_orig = frame.copy()
 	blank_image = np.zeros(shape=[height, width, 3], dtype=np.uint8)
 
 	#Convert from BGR to HSV colorspace
-	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV);
+	frame = cv2.cvtColor(img, cv2.COLOR_BGR2HSV);
 
 	#Guassian blur
 	blur_params = (5,5)
 	frame = cv2.GaussianBlur(frame,blur_params,cv2.BORDER_DEFAULT)
 
 	#yellow
-	lower = (0, 70, 40) #lower threshhold values (H, S, V)
-	upper = (90, 255, 255) #upper threshhold values (H, S, V)
+	lower = (0, 80, 40) #lower threshhold values (H, S, V)
+	upper = (80, 255, 250) #upper threshhold values (H, S, V)
 	frame = cv2.inRange(frame, lower, upper)
 
 	# ##with single G
@@ -191,16 +219,16 @@ def pose_solve(cluster_mean):
 									(corner_sort_x[3], corner_sort_y[3]),
 								], dtype="double")
 		# model_points_yellow = np.array([ 
-		# 								(-0.5*0.84, -0.5*0.43, 0.0),    #TOP LEFT CORNER IS ORIGIN (x,y,z)
-		# 								(0.5*0.84, -0.5*0.43, 0.0),
-		# 								(0.81-0.5*84, 0.5*0.43, 0.0),
-		# 								(.03-0.5*84, 0.5*.43, 0.0),
+		# 								(-0.5*0.96, -0.5*0.58, 0.0),
+		# 								(0.5*0.96, -0.5*0.58, 0.0),
+		# 								(0.5*0.93, 0.5*0.58, 0.0),
+		# 								(-0.5*93, 0.5*.58, 0.0),
 		# 								])
 		model_points_yellow = np.array([ 
 										(0.0, 0.0, 0.0),    #TOP LEFT CORNER IS ORIGIN (x,y,z)
-										(.8763, 0.0, 0.0),
-										(.8573, 0.4826, 0.0),
-										(.0191, 0.4826, 0.0),
+										(.96, 0.0, 0.0),
+										(.93, 0.58, 0.0),
+										(.03, 0.58, 0.0),
 										])
 
 	    #model_points_purple = np.array([
@@ -214,11 +242,11 @@ def pose_solve(cluster_mean):
 		# focal_length_y = 750.175831 #get from camera calibration
 		
 		###### with larger FOV setting ############
-		# focal_length_x = 353.939474 #get from camera calibration
-		# focal_length_y = 353.169928 #get from camera calibration
+		focal_length_x = 353.939474 #get from camera calibration
+		focal_length_y = 353.169928 #get from camera calibration
 		
-		focal_length_x = 256.089233 #get from camera calibration
-		focal_length_y = 299.638275 #get from camera calibration
+		# focal_length_x = 256.089233 #get from camera calibration
+		# focal_length_y = 299.638275 #get from camera calibration
 		
 		size = frame.shape
 		center = (size[1]/2, size[0]/2)
@@ -233,12 +261,14 @@ def pose_solve(cluster_mean):
 								[0, 0, 1]], dtype = "double"
 								)
 		# dist_coeffs = np.array([-0.337798, 0.142319, 0.001475, 0.003604, 0.0]) #get from camera calibration
-		dist_coeffs = np.array([-0.271345, 0.06, -0.000446, -0.000109, 0.0]) #get from camera calibration
+		# dist_coeffs = np.array([-0.271345, 0.06, -0.000446, -0.000109, 0.0]) #get from camera calibration
+		dist_coeffs = np.zeros((4,1))
 
 		(success, rotation_pnp, translation_pnp) = cv2.solvePnP(model_points_yellow, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 		#returns a rotation and translation matrix of the extrinsic matrix of the camera 
 		#i.e. rotation of the camera relative to fixed world origin (top left corner of window)
 
+		# print(rotation_pnp)
 		if (abs(rotation_pnp[0])<0.4 and abs(rotation_pnp[2])<0.4):
 			
 			rotation_pnp_pub = rotation_pnp.copy()
@@ -265,6 +295,8 @@ def pose_solve(cluster_mean):
 			pose_rel.pose.pose.orientation.z = rotation_pnp_q[3]
 			pub_pose_rel.publish(pose_rel)
 
+			pose_cam2in()
+
 			return True
 	else:
 		return False
@@ -273,20 +305,29 @@ def pose_solve(cluster_mean):
 def pose_cam2in():
 	global pose_rel, pose_gate_in, x, y, z, yaw
 	global pub_pose_gate_in
+	global translation_pnp, rotation_pnp
+
+	# q0 = pose_rel.pose.pose.orientation.w
+	# q1 = pose_rel.pose.pose.orientation.x
+	# q2 = pose_rel.pose.pose.orientation.y
+	# q3 = pose_rel.pose.pose.orientation.z
+	# _,yaw_obj_rel,_ = quaternion_to_euler(q0, q1, q2, q3)
+
+	yaw_obj_rel = rotation_pnp[1]
 
 	x_obj_rel_c = pose_rel.pose.pose.position.x
 	y_obj_rel_c = pose_rel.pose.pose.position.y
 	z_obj_rel_c = pose_rel.pose.pose.position.z
 
 	# camera to body frame
-	x_obj_rel_b = obs_factor_x * -y_obj_rel_c + obs_offset_x
+	x_obj_rel_b = obs_factor_x * z_obj_rel_c + obs_offset_x
 	y_obj_rel_b = obs_factor_y * -x_obj_rel_c + obs_offset_y
-	z_obj_rel_b = obs_factor_z * -z_obj_rel_c + obs_offset_z
+	z_obj_rel_b = obs_factor_z * -y_obj_rel_c + obs_offset_z
 
-	rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
+	rospy.loginfo('x_b %f \t y_b %f \t z_b %f \t yaw_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b, yaw_obj_rel)
 
 	# body to inertial frame rotation transform
-	x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
+	x_obj_rel_in = x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
 	y_obj_rel_in = x_obj_rel_b*sin(yaw) + y_obj_rel_b*cos(yaw)
 	z_obj_rel_in = z_obj_rel_b
 
@@ -294,6 +335,10 @@ def pose_cam2in():
 	x_obj = x + x_obj_rel_in
 	y_obj = y + y_obj_rel_in
 	z_obj = z + z_obj_rel_in
+
+	yaw_obj = yaw - obs_factor_yaw * yaw_obj_rel + obs_offset_yaw
+	
+	# rospy.loginfo('x_in %f \t y_in %f \t z_in %f \t yaw_in %f', x_obj, y_obj, z_obj, yaw_obj)	
 
 	pose_gate_in.header.frame_id = "odom"
 	pose_gate_in.child_frame_id = "base_link"
@@ -304,15 +349,32 @@ def pose_cam2in():
 	pose_gate_in.twist.twist.linear.x = 0.0
 	pose_gate_in.twist.twist.linear.y = 0.0
 	pose_gate_in.twist.twist.linear.z = 0.0
-	pose_gate_in.pose.pose.orientation.w = 1.0
+	pose_gate_in.pose.pose.orientation.w = cos(0.5*yaw_obj)
 	pose_gate_in.pose.pose.orientation.x = 0.0
 	pose_gate_in.pose.pose.orientation.y = 0.0
-	pose_gate_in.pose.pose.orientation.z = 0.0
+	pose_gate_in.pose.pose.orientation.z = sin(0.5*yaw_obj)
 
 	pub_pose_gate_in.publish(pose_gate_in)
 
 	# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj, y_obj, z_obj, yaw_obj)
 	# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', x_obj_rel_in, y_obj_rel_in, z_obj_rel_in, yaw_obj)
+
+# pose of quad in inertial frame
+def quad_pose(data):
+	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
+
+	x = data.pose.pose.position.x
+	y = data.pose.pose.position.y
+	z = data.pose.pose.position.z
+	vx = data.twist.twist.linear.x
+	vy = data.twist.twist.linear.y
+	vz = data.twist.twist.linear.z
+
+	q0 = data.pose.pose.orientation.w
+	q1 = data.pose.pose.orientation.x
+	q2 = data.pose.pose.orientation.y
+	q3 = data.pose.pose.orientation.z
+	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
 
 def euler_to_quaternion(roll, pitch, yaw):
 
@@ -422,23 +484,25 @@ def main():
 	rospy.Subscriber('/image_raw', Image, callback)
 	# rospy.Subscriber('/image_raw_throttle', Image, callback)
 
+	rospy.Subscriber('/pose_in', Odometry, quad_pose)
+
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
-		try:
-			thresholding()
-			corners = get_corners()
-			flag_publish = pose_solve(corners)
-			if (flag_publish):
-				pose_display(corners)
-		except:
-			rospy.loginfo('Some error ocurred')
+		# try:
+		# 	thresholding()
+		# 	corners = get_corners()
+		# 	flag_publish = pose_solve(corners)
+		# 	if (flag_publish):
+		# 		pose_display(corners)
+		# except:
+		# 	rospy.loginfo('Some error ocurred')
 
-		# thresholding()
-		# corners = get_corners()
-		# flag_publish = pose_solve(corners)
-		# if (flag_publish):
-		# 	pose_display(corners)
+		thresholding()
+		corners = get_corners()
+		flag_publish = pose_solve(corners)
+		if (flag_publish):
+			pose_display(corners)
 
 		pub_bin_image.publish(bin_image)
 		pub_contour_image.publish(contour_image)

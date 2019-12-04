@@ -17,8 +17,8 @@ t = t_search = t_search_start = t_window_detect = 0.0
 phase = 0.0
 
 # convergence radii
-r_ac = 0.05
-v_ac = 0.1
+r_ac = 0.06
+v_ac = 0.05
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
@@ -30,7 +30,7 @@ zd = 0.0
 yawd = 0.0
 
 # target pose in inertial frame (from EKF)
-x_obj = y_obj = z_obj = 0.0
+x_obj = y_obj = z_obj = yaw_obj = 0.0
 
 # initial target location and covariance
 x_srch = 0.0
@@ -46,7 +46,7 @@ omega = 2.0*3.14/T
 
 def estimate():
 	print("Estimating Gate position...")
-	global xd, yd, zd, x_target, y_target
+	global xd, yd, zd, yawd, x_target, y_target
 	global t, t_search_start, t_search
 	global phase
 
@@ -75,17 +75,21 @@ def estimate():
 
 def converge():
 	print("converging to Gate...")
-	global mission_no, xd, yd, zd, x, y, z
-	global r_ac, v_ac, x_obj, y_obj
+	global mission_no, xd, yd, zd, yawd, x, y, z
+	global r_ac, v_ac, x_obj, y_obj, yaw_obj
 
-	wpt_dist = 1.5
+	wpt_dist = 1.0
 
 	xd = x_obj - wpt_dist*cos(yaw_obj)
 	yd = y_obj - wpt_dist*sin(yaw_obj)
-	zd = z_obj
+	zd = z_obj + 0.05
+	yawd = yaw_obj
+	# yawd = yaw_obj + atan2(y_obj - y, x_obj - x)
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
-		rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + 0.8, y_obj, z_obj)
+	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 1*r_ac**2 and (vx**2 + vy**2 + vz**2) < 1*v_ac**2):
+		rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + wpt_dist*cos(yaw_obj), y_obj + wpt_dist*sin(yaw_obj), z_obj)
 		usr_in = raw_input('Should I cross? :( :')
 		if(usr_in=="1"):
 			mission_no = 3
@@ -94,14 +98,17 @@ def converge():
 
 def cross():
 	print("crossing the gate...")
-	global mission_no, xd, yd, zd, x, y, z
-	global r_ac, v_ac, x_obj, y_obj
+	global mission_no, xd, yd, yawd, zd, x, y, z
+	global r_ac, v_ac, x_obj, y_obj, yaw_obj
 
-	wpt_dist = 1.5
+	wpt_dist = 0.5
 
 	xd = x_obj + wpt_dist*cos(yaw_obj)
 	yd = y_obj + wpt_dist*sin(yaw_obj)
-	zd = z_obj
+	zd = z_obj + 0.05
+	yawd = yaw_obj
+
+	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
 		mission_no = 3
@@ -172,7 +179,7 @@ def quaternion_to_euler(w, x, y, z):
 	return [roll, pitch, yaw]
 
 def target_feedback(data):
-	global x_obj, y_obj, z_obj, mission_no
+	global x_obj, y_obj, z_obj, yaw_obj, mission_no
 
 	if(mission_no == 0):
 		mission_no = 1
@@ -181,10 +188,15 @@ def target_feedback(data):
 		x_obj = data.pose.pose.position.x
 		y_obj = data.pose.pose.position.y
 		z_obj = data.pose.pose.position.z
+		q0 = data.pose.pose.orientation.w
+		q1 = data.pose.pose.orientation.x
+		q2 = data.pose.pose.orientation.y
+		q3 = data.pose.pose.orientation.z
+		_,_,yaw_obj = quaternion_to_euler(q0, q1, q2, q3)
 		
 
 def pub_waypoint():
-	global xd, yd, zd, pose_d_in, pub_pose_d_in
+	global xd, yd, zd, yawd, pose_d_in, pub_pose_d_in
 	pose_d_in.header.frame_id = "odom"
 	pose_d_in.child_frame_id = "base_link"
 	pose_d_in.header.stamp = rospy.get_rostime()
@@ -194,10 +206,10 @@ def pub_waypoint():
 	pose_d_in.twist.twist.linear.x = 0.0
 	pose_d_in.twist.twist.linear.y = 0.0
 	pose_d_in.twist.twist.linear.z = 0.0
-	pose_d_in.pose.pose.orientation.w = 1.0
+	pose_d_in.pose.pose.orientation.w = cos(0.5*yawd)
 	pose_d_in.pose.pose.orientation.x = 0.0
 	pose_d_in.pose.pose.orientation.y = 0.0
-	pose_d_in.pose.pose.orientation.z = 0.0
+	pose_d_in.pose.pose.orientation.z = sin(0.5*yawd)
 
 	pub_pose_d_in.publish(pose_d_in)
 
