@@ -62,7 +62,7 @@ def pose_cam2in(theta):
 	global pose_rel, pose_bridge_in, x, y, z, yaw
 	global pub_pose_bridge_in
 	#print('yaw = ',yaw)
-	rotation_q = euler_to_quaternion(0.0,0.0,yaw + theta)
+	rotation_q = euler_to_quaternion(0.0,0.0,yaw - theta)
 
 	x_obj_rel_c = pose_rel.pose.pose.position.x
 	y_obj_rel_c = pose_rel.pose.pose.position.y
@@ -194,7 +194,7 @@ def featurelessThresh(frame):
     #simple threshhold on featureless areas; if featureless area is too dark, likely not bridge
 	frame[np.where(frame == 255)] = orig_frame[np.where(frame == 255)]
     #threshhold for high brightness featurelss areas
-	lower = 180 #lower threshhold value
+	lower = 150 #lower threshhold value
 	upper = 255 #upper threshhold value
 	frame = cv2.inRange(frame, lower, upper)
    	#dilate/erode edges
@@ -268,9 +268,9 @@ def getBridgeCenter(frame):
 	    d4 = math.sqrt((corner_sort_x[2] - corner_sort_x[1])**2 + (corner_sort_y[2] - corner_sort_y[1])**2)
     #check if bridge is at top or bottom of frame
     if np.sum(frame[0,:])>0:
-    	slope = 100000
+    	slope = 1.7
     elif np.sum(frame[height-1,:])>0:
-    	slope = -100000
+    	slope = 1.7
     #get slope normally if bridge is in frame normally
     else:
 	    if d1 > d2: #horizontal
@@ -365,6 +365,7 @@ def lowPassWaypoints(cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4,cX_bridge_p
     return cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4
 
 def lowPassTheta(theta,theta_prev,B):
+	# B = 0.5 #lp filter parameter
 	theta = B*theta + (1.0 - B)*theta_prev
 	return theta
 
@@ -474,7 +475,7 @@ def main():
 
 			        #calculate angle
 			        theta = math.atan2((xb_past - xb_b4),(yb_past-yb_b4)) #radians
-			        theta = lowPassTheta(theta,theta_prev,.08)
+			        theta = lowPassTheta(theta,theta_prev,.4)
 			        theta_prev = theta
 
 			        #pose

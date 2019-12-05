@@ -7,6 +7,8 @@ from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
 flag_land = False
+flag_initialized = False
+
 pose_d_in = Odometry()
 
 Hz = 10.0
@@ -23,6 +25,7 @@ v_ac = 0.1
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
 z = 0.25
+yaw0 = 0.0
 
 # desired state values, current state should move towards this
 xd = 0.0
@@ -31,7 +34,7 @@ zd = 0.0
 yawd = 0.0
 
 # target pose in inertial frame (from EKF)
-x_obj = y_obj = z_obj = 0.0
+x_obj = y_obj = z_obj = yaw_obj = 0.0
 
 # initial target location and covariance
 x_srch = 0.0
@@ -41,42 +44,49 @@ cov_y = 0.0
 
 mission_no = 0
 
-def search():
-	print("searching...")
-	global xd, yd, zd, x_target, y_target, mission_no
-	global t, t_search_start, t_search
-	global phase
+# def search():
+# 	print("searching...")
+# 	global xd, yd, zd, x_target, y_target, mission_no
+# 	global t, t_search_start, t_search
+# 	global phase
 
-	xd = x_srch
-	yd = y_srch
-	zd = 0.25
+# 	xd = x_srch
+# 	yd = y_srch
+# 	zd = 0.25
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
-		mission_no = 1
-		t_search_start = t
-		print('switching to mission water')
+# 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
+# 		mission_no = 1
+# 		t_search_start = t
+# 		print('switching to mission water')
 
-	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+# 	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def search_water():
 	print("searching for bridge...")
-	global xd, yd, zd, x_target, y_target
+	global xd, yd, zd, yawd, x_target, y_target
 	global t, t_search_start, t_search
 	global phase
 
-	xd = x_srch
-	yd = y_srch
+	yawd = yaw0 - 45*(3.14/180)
+
+	r = 0.1*t_search
+	if (r > 2.0):
+		yd = 2.0
+
+	# yd = 0.2*t_search
+	# if (yd > 3.0):
+	# 	yd = 3.0
+	# elif(yd < -3.0):
+	# 	yd = -3.0
+
+	xd = x_srch + r*cos(yawd)
+	yd = y_srch + r*sin(yawd)
 	zd = 0.25
 
 	dt = 1/Hz
 	t_search = t - t_search_start
 	# rospy.loginfo('t_search %f', t_search)
 
-	yd = 0.2*t_search
-	if (yd > 3.0):
-		yd = 3.0
-	elif(yd < -3.0):
-		yd = -3.0
 
 	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
@@ -85,6 +95,8 @@ def converge():
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
+	yaw_obj = -90*(3.14/180)
+
 	wpt_dist = 0.8
 
 	xd = x_obj - wpt_dist*cos(yaw_obj)
@@ -92,15 +104,19 @@ def converge():
 	zd = 0.25
 	yawd = yaw_obj
 
+	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
-		mission_no = 3
+		mission_no = 2
 
 def cross():
 	print("crossing the bridge...")
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
-	wpt_dist = 0.8
+	yaw_obj = -90*(3.14/180)
+
+	wpt_dist = 0.4
 
 	xd = x_obj + wpt_dist*cos(yaw_obj)
 	yd = y_obj + wpt_dist*sin(yaw_obj)
@@ -108,7 +124,7 @@ def cross():
 	yawd = yaw_obj
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
-		mission_no = 4
+		mission_no = 3
 
 def land():
 	print("landing...")
@@ -130,11 +146,16 @@ def default():
 	zd = z
 
 switcher = {
-	0: search,
-	1: search_water,
-	2: converge,
-	3: cross,
-	4: land
+	# 0: search,
+	# 1: search_water,
+	# 2: converge,
+	# 3: cross,
+	# 4: land
+
+	0: search_water,
+	1: converge,
+	2: cross,
+	3: land
 }
 
 def waypoint_gen():
@@ -146,7 +167,8 @@ def waypoint_gen():
 
 # pose of quad in inertial frame
 def quad_pose(data):
-	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
+	global x, y ,z, vx, vy ,vz, roll, pitch, yaw, yaw0
+	global mission_no, flag_initialized
 
 	x = data.pose.pose.position.x
 	y = data.pose.pose.position.y
@@ -160,6 +182,10 @@ def quad_pose(data):
 	q2 = data.pose.pose.orientation.y
 	q3 = data.pose.pose.orientation.z
 	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
+
+	if (flag_initialized==False):
+		yaw0 = yaw
+		flag_initialized = True
 
 def quaternion_to_euler(w, x, y, z):
 
@@ -177,12 +203,12 @@ def quaternion_to_euler(w, x, y, z):
 	return [roll, pitch, yaw]
 
 def target_feedback(data):
-	global x_obj, y_obj, z_obj, mission_no
+	global x_obj, y_obj, z_obj, yaw_obj, mission_no
+
+	if(mission_no == 0):
+		mission_no = 1
 
 	if(mission_no == 1):
-		mission_no = 2
-
-	if(mission_no == 2):
 		x_obj = data.pose.pose.position.x
 		y_obj = data.pose.pose.position.y
 		z_obj = data.pose.pose.position.z
