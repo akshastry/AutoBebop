@@ -240,10 +240,10 @@ def main():
 	pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1)
 	pub_pose_in = rospy.Publisher('/pose_in', Odometry, queue_size=1)
 
-	# takeoff
-	time.sleep(2.0)
-	pub_to.publish()
-	time.sleep(5.0)
+	# # takeoff
+	# time.sleep(2.0)
+	# pub_to.publish()
+	# time.sleep(5.0)
 
 	rospy.Subscriber('/pose_d_in', Odometry, reference)
 	rospy.Subscriber('/bebop/odom', Odometry, feedback)
