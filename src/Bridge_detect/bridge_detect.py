@@ -194,7 +194,7 @@ def featurelessThresh(frame):
     #simple threshhold on featureless areas; if featureless area is too dark, likely not bridge
 	frame[np.where(frame == 255)] = orig_frame[np.where(frame == 255)]
     #threshhold for high brightness featurelss areas
-	lower = 80 #lower threshhold value
+	lower = 180 #lower threshhold value
 	upper = 255 #upper threshhold value
 	frame = cv2.inRange(frame, lower, upper)
    	#dilate/erode edges
