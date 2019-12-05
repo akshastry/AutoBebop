@@ -82,7 +82,7 @@ def search_water():
 
 def converge():
 	print("converging to bridge...")
-	global mission_no, xd, yd, zd, x, y, z
+	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
 	wpt_dist = 0.8
@@ -90,13 +90,14 @@ def converge():
 	xd = x_obj - wpt_dist*cos(yaw_obj)
 	yd = y_obj - wpt_dist*sin(yaw_obj)
 	zd = 0.25
+	yawd = yaw_obj
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
 		mission_no = 3
 
 def cross():
 	print("crossing the bridge...")
-	global mission_no, xd, yd, zd, x, y, z
+	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
 	wpt_dist = 0.8
@@ -104,6 +105,7 @@ def cross():
 	xd = x_obj + wpt_dist*cos(yaw_obj)
 	yd = y_obj + wpt_dist*sin(yaw_obj)
 	zd = 0.25
+	yawd = yaw_obj
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
 		mission_no = 4
@@ -201,10 +203,10 @@ def pub_waypoint():
 	pose_d_in.twist.twist.linear.x = 0.0
 	pose_d_in.twist.twist.linear.y = 0.0
 	pose_d_in.twist.twist.linear.z = 0.0
-	pose_d_in.pose.pose.orientation.w = 1.0
+	pose_d_in.pose.pose.orientation.w = cos(0.5*yawd)
 	pose_d_in.pose.pose.orientation.x = 0.0
 	pose_d_in.pose.pose.orientation.y = 0.0
-	pose_d_in.pose.pose.orientation.z = 0.0
+	pose_d_in.pose.pose.orientation.z = sin(0.5*yawd)
 
 	pub_pose_d_in.publish(pose_d_in)
 
