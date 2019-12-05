@@ -17,11 +17,12 @@ t = t_search = t_search_start = t_window_detect = 0.0
 phase = 0.0
 
 # convergence radii
-r_ac = 0.05
+r_ac = 0.06
 v_ac = 0.1
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
+z = 0.25
 
 # desired state values, current state should move towards this
 xd = 0.0
@@ -33,7 +34,7 @@ yawd = 0.0
 x_obj = y_obj = z_obj = 0.0
 
 # initial target location and covariance
-x_srch = 1.0
+x_srch = 0.0
 y_srch = 0.0
 cox_x = 0.0
 cov_y = 0.0
@@ -84,8 +85,10 @@ def converge():
 	global mission_no, xd, yd, zd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
-	xd = x_obj - 0.8
-	yd = y_obj
+	wpt_dist = 0.8
+
+	xd = x_obj - wpt_dist*cos(yaw_obj)
+	yd = y_obj - wpt_dist*sin(yaw_obj)
 	zd = 0.25
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
@@ -96,8 +99,10 @@ def cross():
 	global mission_no, xd, yd, zd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
-	xd = x_obj + 0.8
-	yd = y_obj
+	wpt_dist = 0.8
+
+	xd = x_obj + wpt_dist*cos(yaw_obj)
+	yd = y_obj + wpt_dist*sin(yaw_obj)
 	zd = 0.25
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
@@ -179,6 +184,11 @@ def target_feedback(data):
 		x_obj = data.pose.pose.position.x
 		y_obj = data.pose.pose.position.y
 		z_obj = data.pose.pose.position.z
+		q0 = data.pose.pose.orientation.w
+		q1 = data.pose.pose.orientation.x
+		q2 = data.pose.pose.orientation.y
+		q3 = data.pose.pose.orientation.z
+		_,_,yaw_obj = quaternion_to_euler(q0, q1, q2, q3)
 
 def pub_waypoint():
 	global xd, yd, zd, pose_d_in, pub_pose_d_in
