@@ -17,11 +17,11 @@ master_mission_no = 0
 
 bridge = CvBridge()
 
-# camera Parameters
+# camera Parameters 640x480
 fx = 353.939474
 fy = 353.169928
-cx = 800*0.5
-cy = 460*0.5
+cx = 640*0.5
+cy = 480*0.5
 # cx = 357.244818
 # cy = 192.270976
 
@@ -106,12 +106,12 @@ def pose_estimation(dist):
 	width = int(img.shape[1] * scale)
 	height = int(img.shape[0] * scale)
 	dim = (width, height) #can also just specify desired dimensions
-	frame = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-	frame_prev = cv2.resize(img_prev, dim, interpolation = cv2.INTER_AREA)
+	# img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+	# img_prev = cv2.resize(img_prev, dim, interpolation = cv2.INTER_AREA)
 
 	#Convert from BGR to gray colorspace
-	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY);
-	frame_prev = cv2.cvtColor(frame_prev, cv2.COLOR_BGR2GRAY);
+	frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY);
+	frame_prev = cv2.cvtColor(img_prev, cv2.COLOR_BGR2GRAY);
 
 	img1 = frame.copy()
 	img2 = frame_prev.copy()
