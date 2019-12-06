@@ -1,0 +1,11 @@
+<launch>
+	<!-- <node pkg="AutoBebop" type="control.py" name="control" /> -->
+	<node pkg="AutoBebop" type="mission_wall_sub.py" name="mission_wall_sub" />
+	<node pkg="AutoBebop" type="mission_gate_sub.py" name="mission_gate_sub" />
+	<node pkg="AutoBebop" type="mission_bridge_sub.py" name="mission_bridge_sub" />
+
+	<node pkg="AutoBebop" type="gate_detect.py" name="gate_detect" />
+	<node pkg="AutoBebop" type="bridge_detect.py" name="bridge_detect" />
+
+	<node pkg="AutoBebop" type="EKF_window_static.py" name="EKF" />
+</launch>

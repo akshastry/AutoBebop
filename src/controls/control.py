@@ -15,7 +15,7 @@ K_surface = 1.0
 # P gains
 kpx = 0.35
 kpy = 0.35
-kpz = 0.4
+kpz = 0.5
 kp_yaw = 0.45
 
 # D gains
@@ -42,7 +42,7 @@ yawd = 0.0*(3.14/180.0)
 ctrl = Twist()
 pose_in = Odometry()
 
-Trust_R = 0.5
+Trust_R = 0.55
 
 A = 0.3
 T = 10.0
@@ -104,7 +104,7 @@ def control():
 
 	# rospy.loginfo('xd %f \t x %f \t ux %f',xd,x,ux)
 	# rospy.loginfo('yd %f \t y %f \t uy %f',yd,y,uy)
-	rospy.loginfo('zd %f \t z %f \t uz %f',zd,z,uz)
+	# rospy.loginfo('zd %f \t z %f \t uz %f',zd,z,uz)
 
 
 	#if (ux > 0.3):
@@ -248,7 +248,7 @@ def main():
 	rospy.Subscriber('/pose_d_in', Odometry, reference)
 	rospy.Subscriber('/bebop/odom', Odometry, feedback)
 	rospy.Subscriber('/bebop/land', Empty, callback_land)
-	time.sleep(1.0)
+	# time.sleep(1.0)
 
 	rate = rospy.Rate(10) # 10hz
 

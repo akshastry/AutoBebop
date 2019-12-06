@@ -4,7 +4,9 @@ import rospy
 from math import atan2, sin, cos, asin, acos
 import numpy as np
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String, Float64, Empty, Int32
 
+master_mission_no = 0
 
 def euler_to_quaternion(roll, pitch, yaw):
 
@@ -94,6 +96,11 @@ def win_callback(data):
 	EKF_update(Z_k)
 
 
+def get_master_mission(data):
+	global master_mission_no
+	# print(data.data)
+	master_mission_no = data.data
+
 def main():
 	# global psi_qI
 	global X_k
@@ -110,41 +117,45 @@ def main():
 	# rospy.Subscriber('/bebop/odom', Odometry, odom_callback)
 	rospy.Subscriber('/pose_gate_in', Odometry, win_callback)
 
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
+
 	# time.sleep(1.0)
 
 	rate = rospy.Rate(10) # 10hz
 
 	while not rospy.is_shutdown():
-		# t = rospy.get_time() - t0
-		# try:
-		# 	control()
-		# except:
-		# 	rospy.loginfo('Some error ocurred')
 
-		EKF_predict()
+		if (master_mission_no == 1):
+			# t = rospy.get_time() - t0
+			# try:
+			# 	control()
+			# except:
+			# 	rospy.loginfo('Some error ocurred')
 
-		q0, q1, q2, q3 = euler_to_quaternion(0, 0, X_k[3])
+			EKF_predict()
 
-		pose_EKF = Odometry()
-		pose_EKF.header.frame_id = "odom"
-		pose_EKF.child_frame_id = "base_link"
-		pose_EKF.header.stamp = rospy.get_rostime()
-		pose_EKF.pose.pose.position.x = X_k[0]
-		pose_EKF.pose.pose.position.y = X_k[1]
-		pose_EKF.pose.pose.position.z = X_k[2]
-		pose_EKF.twist.twist.linear.x = 0
-		pose_EKF.twist.twist.linear.y = 0
-		pose_EKF.twist.twist.linear.z = 0
-		pose_EKF.pose.pose.orientation.w = q0
-		pose_EKF.pose.pose.orientation.x = q1 
-		pose_EKF.pose.pose.orientation.y = q2
-		pose_EKF.pose.pose.orientation.z = q3
-		pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,P[3,3]])
-		
-		print(np.linalg.norm(pose_EKF.pose.covariance))
-		if (np.linalg.norm(pose_EKF.pose.covariance)<0.03):
-			rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', X_k[0], X_k[1], X_k[2], X_k[3])
-			pub.publish(pose_EKF)
+			q0, q1, q2, q3 = euler_to_quaternion(0, 0, X_k[3])
+
+			pose_EKF = Odometry()
+			pose_EKF.header.frame_id = "odom"
+			pose_EKF.child_frame_id = "base_link"
+			pose_EKF.header.stamp = rospy.get_rostime()
+			pose_EKF.pose.pose.position.x = X_k[0]
+			pose_EKF.pose.pose.position.y = X_k[1]
+			pose_EKF.pose.pose.position.z = X_k[2]
+			pose_EKF.twist.twist.linear.x = 0
+			pose_EKF.twist.twist.linear.y = 0
+			pose_EKF.twist.twist.linear.z = 0
+			pose_EKF.pose.pose.orientation.w = q0
+			pose_EKF.pose.pose.orientation.x = q1 
+			pose_EKF.pose.pose.orientation.y = q2
+			pose_EKF.pose.pose.orientation.z = q3
+			pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,P[3,3]])
+			
+			# print(np.linalg.norm(pose_EKF.pose.covariance))
+			if (np.linalg.norm(pose_EKF.pose.covariance)<0.03):
+				# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', X_k[0], X_k[1], X_k[2], X_k[3])
+				pub.publish(pose_EKF)
 
 		rate.sleep()
 		

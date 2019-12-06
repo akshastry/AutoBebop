@@ -2,12 +2,15 @@
 
 import rospy, time
 from math import atan2, sin, cos, sqrt, asin, acos, atan
-from std_msgs.msg import String, Float64, Empty
+from std_msgs.msg import String, Float64, Empty, Int32
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
+master_mission_no = 0
+
 flag_land = False
 flag_initialized = False
+flag_yaw_initialized = False
 
 pose_d_in = Odometry()
 
@@ -67,7 +70,10 @@ def search_water():
 	global t, t_search_start, t_search
 	global phase
 
-	yawd = yaw0 - 45*(3.14/180)
+	dt = 1/Hz
+	t_search = t - t_search_start
+
+	yawd = yaw0 - 30*(3.14/180)
 
 	r = 0.1*t_search
 	if (r > 2.0):
@@ -83,12 +89,11 @@ def search_water():
 	yd = y_srch + r*sin(yawd)
 	zd = 0.25
 
-	dt = 1/Hz
-	t_search = t - t_search_start
+
 	# rospy.loginfo('t_search %f', t_search)
 
 
-	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
 	print("converging to bridge...")
@@ -104,9 +109,9 @@ def converge():
 	zd = 0.25
 	yawd = yaw_obj
 
-	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 3*r_ac**2 and (vx**2 + vy**2 + vz**2) < 3*v_ac**2):
 		mission_no = 2
 
 def cross():
@@ -124,7 +129,10 @@ def cross():
 	yawd = yaw_obj
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
-		mission_no = 3
+		# mission_no = 3
+		master_mission_no = 3
+		pub_master_mission.publish(master_mission_no)
+		print(master_mission_no)
 
 def land():
 	print("landing...")
@@ -168,7 +176,7 @@ def waypoint_gen():
 # pose of quad in inertial frame
 def quad_pose(data):
 	global x, y ,z, vx, vy ,vz, roll, pitch, yaw, yaw0
-	global mission_no, flag_initialized
+	global mission_no, flag_yaw_initialized
 
 	x = data.pose.pose.position.x
 	y = data.pose.pose.position.y
@@ -183,9 +191,9 @@ def quad_pose(data):
 	q3 = data.pose.pose.orientation.z
 	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
 
-	if (flag_initialized==False):
+	if (flag_yaw_initialized==False):
 		yaw0 = yaw
-		flag_initialized = True
+		flag_yaw_initialized = True
 
 def quaternion_to_euler(w, x, y, z):
 
@@ -239,6 +247,17 @@ def pub_waypoint():
 
 pub_pose_d_in = rospy.Publisher('/pose_d_in', Odometry, queue_size=1)
 pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1, latch=True)
+pub_master_mission = rospy.Publisher('/master_mission_no', Int32, queue_size=1, latch=True)
+
+def get_master_mission(data):
+	global master_mission_no, flag_initialized, x_srch, y_srch
+
+	master_mission_no = data.data
+
+	if (master_mission_no==2 and flag_initialized==False):
+		x_srch = x
+		y_srch = y
+		flag_initialized = True
 
 def main():
 	global t, t_search_start
@@ -246,11 +265,12 @@ def main():
 
 	rospy.Subscriber('/pose_bridge_in', Odometry, target_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
-	time.sleep(1.0)
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
+
+	# time.sleep(1.0)
 	rate = rospy.Rate(Hz) # 10hz
 
 	t0 = rospy.get_time()
-	t_search_start = rospy.get_time() - t0
 	#search initialization ste
 	while not rospy.is_shutdown():
 		t = rospy.get_time() - t0
@@ -262,10 +282,13 @@ def main():
 		# except:
 		# 	rospy.loginfo('Some error ocurred')
 
-		if(flag_land == False):
-			waypoint_gen()
-			pub_waypoint()
-		
+		if (master_mission_no == 2):
+			if(flag_land == False):
+				waypoint_gen()
+				pub_waypoint()
+		else:
+			t_search_start = rospy.get_time() - t0
+
 		rate.sleep()
 
 if __name__ == '__main__':

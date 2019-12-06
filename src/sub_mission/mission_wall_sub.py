@@ -19,7 +19,7 @@ t = t_search = t_search_start = t_window_detect = 0.0
 phase = 0.0
 
 # convergence radii
-r_ac = 0.05
+r_ac = 0.06
 v_ac = 0.1
 
 # current state of quad
@@ -53,7 +53,7 @@ def takeoff():
 
 	# takeoff
 	pub_to.publish()
-	time.sleep(5.0)
+	time.sleep(1.0)
 	mission_no = 1
 
 
@@ -62,14 +62,12 @@ def altitude():
 	global mission_no, xd, yd, zd, x, y, z, yawd
 	global r_ac, v_ac, x_obj, y_obj
 
-	theta = atan2(y_obj,x_obj)
-
 	xd = 0.0
 	yd = 0.0
 	zd = 0.5
 	yawd = 0.0
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 2*r_ac**2 and (vx**2 + vy**2 + vz**2) < 2*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
 		rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + 0.8, y_obj, z_obj)
 		usr_in = raw_input('Should I cross? :( :')
 		if(usr_in=="1"):
@@ -80,16 +78,14 @@ def altitude():
 def cross():
 	print("crossing the wall...")
 	global mission_no, xd, yd, zd, x, y, z, yawd
-	global r_ac, v_ac, x_obj, y_obj
+	global r_ac, v_ac, x_obj, y_obj, master_mission_no
 
-	theta = atan2(y_obj,x_obj)
-
-	xd = 1.0
+	xd = 1.7
 	yd = 0.0
 	zd = 0.5
 	yawd = 0.0
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 5*r_ac**2 and (vx**2 + vy**2 + vz**2) < 5*v_ac**2):
 		# mission_no = 3
 		master_mission_no = 1
 		pub_master_mission.publish(master_mission_no)
@@ -173,7 +169,7 @@ def euler_to_quaternion(roll, pitch, yaw):
 def get_master_mission(data):
 	global master_mission_no
 
-	master_mission_no = data
+	master_mission_no = data.data
 
 def pub_waypoint():
 	global xd, yd, zd, yawd, pose_d_in, pub_pose_d_in
@@ -209,7 +205,7 @@ def main():
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
 	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
 	
-	time.sleep(2.0)
+	time.sleep(1.0)
 	
 	rate = rospy.Rate(Hz) # 10hz
 
@@ -231,6 +227,8 @@ def main():
 				waypoint_gen()
 				pub_waypoint()
 		
+
+
 		rate.sleep()
 
 if __name__ == '__main__':

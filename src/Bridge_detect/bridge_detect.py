@@ -4,12 +4,14 @@ import rospy, time, cv2
 import numpy as np
 from math import sin, cos, atan2, asin, exp, sqrt
 from matplotlib import pyplot as plt
-from std_msgs.msg import String, Float64, Empty
+from std_msgs.msg import String, Float64, Empty, Int32
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import math
 import traceback
+
+master_mission_no = 0
 
 ###############
 # Init. Stuff #
@@ -73,7 +75,7 @@ def pose_cam2in(theta):
 	y_obj_rel_b = obs_factor_y * -x_obj_rel_c + obs_offset_y
 	z_obj_rel_b = obs_factor_z * -z_obj_rel_c + obs_offset_z
 
-	rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
+	# rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
 
 	# body to inertial frame rotation transform
 	x_obj_rel_in =  x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
@@ -374,6 +376,10 @@ def lowPassTheta(theta,theta_prev,B):
 # MAIN LOOP #
 #############
 
+def get_master_mission(data):
+	global master_mission_no
+	master_mission_no = data.data
+
 pub_pose_bridge_in = rospy.Publisher('/pose_bridge_in', Odometry, queue_size=10)
 def main():
 	global edges, dilatedEdges, bridgemask, filledBridge, corners, orig_frame, pub_pose_rel
@@ -389,106 +395,109 @@ def main():
 
 	rospy.Subscriber('/duo3d/left/image_rect', Image, callback) #should be faster than 20Hz or the rate of publishing below, else EKF might get fucked up
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
 
 	cX_bridge_prev = cY_bridge_prev = xb_past_prev = yb_past_prev = xb_b4_prev = yb_b4_prev = theta_prev = 0.0
 
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
-		try: 
-			#get image
-			try:
-				frame = bridge.imgmsg_to_cv2(raw_image, "bgr8")
-			except CvBridgeError as e:
-				print(e)
+		if (master_mission_no == 2):
 
-			frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+			try: 
+				#get image
+				try:
+					frame = bridge.imgmsg_to_cv2(raw_image, "bgr8")
+				except CvBridgeError as e:
+					print(e)
 
-			#scale image if needed
-			frame = scaleImage(frame)
-			#frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-			# frame = cv2.flip(frame,1)
-			orig_frame = np.copy(frame)
+				frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-			#get edges of image
-			frame = getEdges(frame)
-			edges = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
-			edges = bridge.cv2_to_imgmsg(edges, "8UC1")
-			pub_edges_image.publish(edges)
+				#scale image if needed
+				frame = scaleImage(frame)
+				#frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+				# frame = cv2.flip(frame,1)
+				orig_frame = np.copy(frame)
 
-			#dilate edges to fill in featured areas
-			frame = firstDilate(frame)
-			dilatedEdges = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
-			dilatedEdges = bridge.cv2_to_imgmsg(dilatedEdges, "8UC1")
-			pub_dilatedEdges_image.publish(dilatedEdges)
+				#get edges of image
+				frame = getEdges(frame)
+				edges = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
+				edges = bridge.cv2_to_imgmsg(edges, "8UC1")
+				pub_edges_image.publish(edges)
 
-			#of featurelss areas, take only areas of high brightness
-			frame = featurelessThresh(frame)
-			bridgemask = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation   
-			bridgemask = bridge.cv2_to_imgmsg(bridgemask, "8UC1")
-			pub_bridgemask_image.publish(bridgemask)
+				#dilate edges to fill in featured areas
+				frame = firstDilate(frame)
+				dilatedEdges = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
+				dilatedEdges = bridge.cv2_to_imgmsg(dilatedEdges, "8UC1")
+				pub_dilatedEdges_image.publish(dilatedEdges)
 
-			#do some stuff if we detect something that could be a bridge
-			#find all contours of mask
-			_,contours,_ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-			frame = np.zeros(shape=[height,width, 1], dtype=np.uint8)
-			max_contour_ratio = .02  #change based on relative size of bridge in frame 
+				#of featurelss areas, take only areas of high brightness
+				frame = featurelessThresh(frame)
+				bridgemask = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation   
+				bridgemask = bridge.cv2_to_imgmsg(bridgemask, "8UC1")
+				pub_bridgemask_image.publish(bridgemask)
 
-			if len(contours) > 0:
-			    #sort the contours by area
-			    areas = np.array([cv2.contourArea(cnt) for cnt in contours])
-			    idxs  = areas.argsort()
-			    cntsSorted = [contours[i] for i in idxs]
-			    
-			    #if biggest contour is big enough to be a bridge, do more shit
-			    if areas[idxs[-1]] > max_contour_ratio*height*width: 
-			        #fill all concave corners of biggest bridge contour
-			        frame, hull, areas, idxs, cntsSorted = fillBridge(frame,areas,idxs,cntsSorted)
-			        filledBridge = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
-			        filledBridge = bridge.cv2_to_imgmsg(filledBridge, "8UC1")
-			        pub_filledBridge_image.publish(filledBridge)
+				#do some stuff if we detect something that could be a bridge
+				#find all contours of mask
+				_,contours,_ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+				frame = np.zeros(shape=[height,width, 1], dtype=np.uint8)
+				max_contour_ratio = .02  #change based on relative size of bridge in frame 
 
-			        #fit polygon to bridge
-			        frame = fitPoly(frame,hull)
-			        fittedRectangle = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
-			        
-			        #get center of bridge and its slope
-			        corners,cX_bridge,cY_bridge,slope = getBridgeCenter(frame) #corners is image of 4 found corners of bridge, not needed
-			        corners = bridge.cv2_to_imgmsg(np.asarray(corners), "8UC1")
-			        pub_corners_image.publish(corners)
+				if len(contours) > 0:
+				    #sort the contours by area
+				    areas = np.array([cv2.contourArea(cnt) for cnt in contours])
+				    idxs  = areas.argsort()
+				    cntsSorted = [contours[i] for i in idxs]
+				    
+				    #if biggest contour is big enough to be a bridge, do more shit
+				    if areas[idxs[-1]] > max_contour_ratio*height*width: 
+				        #fill all concave corners of biggest bridge contour
+				        frame, hull, areas, idxs, cntsSorted = fillBridge(frame,areas,idxs,cntsSorted)
+				        filledBridge = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
+				        filledBridge = bridge.cv2_to_imgmsg(filledBridge, "8UC1")
+				        pub_filledBridge_image.publish(filledBridge)
 
-			        #get waypoint before and on other side of bridge
-			        orig_frame,x_past,y_past,x_b4,y_b4 = getBridgeWaypoints(orig_frame,slope,cX_bridge,cY_bridge) #orig_frame is original image with detected center and direction
-			        
-			        #convert pixel coordinates of two waypoints to displacements w.r.t. body frame
-			        cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4 = pixel2meters(cX_bridge,cY_bridge,x_past,y_past,x_b4,y_b4 )
-			        
-			        #lowpass filter waypoint coordinates
-			        cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4 = lowPassWaypoints(cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4,cX_bridge_prev,cY_bridge_prev,xb_past_prev,yb_past_prev,xb_b4_prev,yb_b4_prev)
-			        #store previous values 
-			        cX_bridge_prev = cX_bridge
-			        cY_bridge_prev = cY_bridge
-			        xb_past_prev = xb_past
-			        yb_past_prev = yb_past
-			        xb_b4_prev = xb_b4
-			        yb_b4_prev =yb_b4
+				        #fit polygon to bridge
+				        frame = fitPoly(frame,hull)
+				        fittedRectangle = np.copy(frame) #for plotting and troubleshooting, comment out in final implimentation
+				        
+				        #get center of bridge and its slope
+				        corners,cX_bridge,cY_bridge,slope = getBridgeCenter(frame) #corners is image of 4 found corners of bridge, not needed
+				        corners = bridge.cv2_to_imgmsg(np.asarray(corners), "8UC1")
+				        pub_corners_image.publish(corners)
 
-			        #calculate angle
-			        theta = math.atan2((xb_past - xb_b4),(yb_past-yb_b4)) #radians
-			        theta = lowPassTheta(theta,theta_prev,.4)
-			        theta_prev = theta
+				        #get waypoint before and on other side of bridge
+				        orig_frame,x_past,y_past,x_b4,y_b4 = getBridgeWaypoints(orig_frame,slope,cX_bridge,cY_bridge) #orig_frame is original image with detected center and direction
+				        
+				        #convert pixel coordinates of two waypoints to displacements w.r.t. body frame
+				        cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4 = pixel2meters(cX_bridge,cY_bridge,x_past,y_past,x_b4,y_b4 )
+				        
+				        #lowpass filter waypoint coordinates
+				        cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4 = lowPassWaypoints(cX_bridge,cY_bridge,xb_past,yb_past,xb_b4,yb_b4,cX_bridge_prev,cY_bridge_prev,xb_past_prev,yb_past_prev,xb_b4_prev,yb_b4_prev)
+				        #store previous values 
+				        cX_bridge_prev = cX_bridge
+				        cY_bridge_prev = cY_bridge
+				        xb_past_prev = xb_past
+				        yb_past_prev = yb_past
+				        xb_b4_prev = xb_b4
+				        yb_b4_prev =yb_b4
 
-			        #pose
-			        get_pose(cX_bridge,cY_bridge,theta)
-			        pose_cam2in(theta)     
+				        #calculate angle
+				        theta = math.atan2((xb_past - xb_b4),(yb_past-yb_b4)) #radians
+				        theta = lowPassTheta(theta,theta_prev,.4)
+				        theta_prev = theta
 
-			orig_frame2 = bridge.cv2_to_imgmsg(orig_frame, "8UC1")
-			pub_orig_frame_image.publish(orig_frame2)
+				        #pose
+				        get_pose(cX_bridge,cY_bridge,theta)
+				        pose_cam2in(theta)     
+
+				orig_frame2 = bridge.cv2_to_imgmsg(orig_frame, "8UC1")
+				pub_orig_frame_image.publish(orig_frame2)
 
 
-		except Exception:
-			traceback.print_exc()
-			rospy.loginfo('Some error ocurred... in bridge_detect.py')
+			except Exception:
+				traceback.print_exc()
+				# rospy.loginfo('Some error ocurred... in bridge_detect.py')
 
 		rate.sleep()
 

@@ -4,12 +4,14 @@ import rospy, time, cv2
 import numpy as np
 from math import sin, cos, atan2, asin, exp, sqrt
 from matplotlib import pyplot as plt
-from std_msgs.msg import String, Float64, Empty
+from std_msgs.msg import String, Float64, Empty, Int32
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from decimal import Decimal
+
+master_mission_no = 0
 
 # observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
 obs_factor_x = 1.0
@@ -324,7 +326,7 @@ def pose_cam2in():
 	y_obj_rel_b = obs_factor_y * -x_obj_rel_c + obs_offset_y
 	z_obj_rel_b = obs_factor_z * -y_obj_rel_c + obs_offset_z
 
-	rospy.loginfo('x_b %f \t y_b %f \t z_b %f \t yaw_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b, yaw_obj_rel)
+	# rospy.loginfo('x_b %f \t y_b %f \t z_b %f \t yaw_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b, yaw_obj_rel)
 
 	# body to inertial frame rotation transform
 	x_obj_rel_in = x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
@@ -467,6 +469,10 @@ def callback(image):
 	global raw_image
 	raw_image = image
 
+def get_master_mission(data):
+	global master_mission_no
+	master_mission_no = data.data
+
 pub_pose_gate_in = rospy.Publisher('/pose_gate_in', Odometry, queue_size=10)
 def main():
 	global raw_image, bin_image, debug_image, pose_rel, pub_pose_rel
@@ -485,30 +491,32 @@ def main():
 	# rospy.Subscriber('/image_raw_throttle', Image, callback)
 
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
 
 	rate = rospy.Rate(20)
 	while not rospy.is_shutdown():
 
-		# try:
-		# 	thresholding()
-		# 	corners = get_corners()
-		# 	flag_publish = pose_solve(corners)
-		# 	if (flag_publish):
-		# 		pose_display(corners)
-		# except:
-		# 	rospy.loginfo('Some error ocurred')
+		if (master_mission_no == 1):
+			# try:
+			# 	thresholding()
+			# 	corners = get_corners()
+			# 	flag_publish = pose_solve(corners)
+			# 	if (flag_publish):
+			# 		pose_display(corners)
+			# except:
+			# 	rospy.loginfo('Some error ocurred')
 
-		thresholding()
-		corners = get_corners()
-		flag_publish = pose_solve(corners)
-		if (flag_publish):
-			pose_display(corners)
+			thresholding()
+			corners = get_corners()
+			flag_publish = pose_solve(corners)
+			if (flag_publish):
+				pose_display(corners)
 
-		pub_bin_image.publish(bin_image)
-		pub_contour_image.publish(contour_image)
-		pub_corner_image.publish(corner_image)
-		pub_pose_image.publish(pose_image)
-		pub_debug_image.publish(debug_image)
+			pub_bin_image.publish(bin_image)
+			pub_contour_image.publish(contour_image)
+			pub_corner_image.publish(corner_image)
+			pub_pose_image.publish(pose_image)
+			pub_debug_image.publish(debug_image)
 		rate.sleep()
 
 if __name__ == '__main__':
