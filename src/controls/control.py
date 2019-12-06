@@ -7,7 +7,7 @@ from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
 flag_initialize=True
-flag_land = False
+flag_land = True
 
 # to account for odometry drift on different surfaces
 K_surface = 1.0
@@ -228,7 +228,21 @@ def reference(data):
 
 def callback_land(data):
 	global flag_land
+
 	flag_land = True
+
+	print("Landing mode enabled: Disabling control")
+	print(flag_land)
+
+def callback_takeoff(data):
+	global flag_land
+
+	print("Flying mode enabled: Enabling control in 5 secs")
+
+	time.sleep(5.0)
+	flag_land = False
+	
+	print(flag_land)
 
 def main():
 	global t, t0, flag_land
@@ -236,8 +250,8 @@ def main():
 	rospy.init_node('control', anonymous=True)
 
 	pub = rospy.Publisher('/bebop/cmd_vel', Twist, queue_size=1)
-	pub_to = rospy.Publisher('/bebop/takeoff', Empty, queue_size=1)
-	pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1)
+	# pub_to = rospy.Publisher('/bebop/takeoff', Empty, queue_size=1)
+	# pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1)
 	pub_pose_in = rospy.Publisher('/pose_in', Odometry, queue_size=1)
 
 	# # takeoff
@@ -248,6 +262,7 @@ def main():
 	rospy.Subscriber('/pose_d_in', Odometry, reference)
 	rospy.Subscriber('/bebop/odom', Odometry, feedback)
 	rospy.Subscriber('/bebop/land', Empty, callback_land)
+	rospy.Subscriber('/bebop/takeoff', Empty, callback_takeoff)
 	# time.sleep(1.0)
 
 	rate = rospy.Rate(10) # 10hz
