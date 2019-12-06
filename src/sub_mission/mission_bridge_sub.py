@@ -10,7 +10,6 @@ master_mission_no = 0
 
 flag_land = False
 flag_initialized = False
-flag_yaw_initialized = False
 
 pose_d_in = Odometry()
 
@@ -77,7 +76,7 @@ def search_water():
 
 	r = 0.1*t_search
 	if (r > 2.0):
-		yd = 2.0
+		r = 2.0
 
 	# yd = 0.2*t_search
 	# if (yd > 3.0):
@@ -177,6 +176,7 @@ def waypoint_gen():
 def quad_pose(data):
 	global x, y ,z, vx, vy ,vz, roll, pitch, yaw, yaw0
 	global mission_no, flag_yaw_initialized
+	global master_mission_no
 
 	x = data.pose.pose.position.x
 	y = data.pose.pose.position.y
@@ -191,9 +191,9 @@ def quad_pose(data):
 	q3 = data.pose.pose.orientation.z
 	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
 
-	if (flag_yaw_initialized==False):
-		yaw0 = yaw
-		flag_yaw_initialized = True
+	# if (flag_yaw_initialized==False):
+	# 	yaw0 = yaw
+	# 	flag_yaw_initialized = True
 
 def quaternion_to_euler(w, x, y, z):
 
@@ -250,13 +250,14 @@ pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1, latch=True)
 pub_master_mission = rospy.Publisher('/master_mission_no', Int32, queue_size=1, latch=True)
 
 def get_master_mission(data):
-	global master_mission_no, flag_initialized, x_srch, y_srch
+	global master_mission_no, flag_initialized, x_srch, y_srch, yaw0
 
 	master_mission_no = data.data
 
 	if (master_mission_no==2 and flag_initialized==False):
 		x_srch = x
 		y_srch = y
+		yaw0 = yaw
 		flag_initialized = True
 
 def main():

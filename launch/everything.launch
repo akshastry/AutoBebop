@@ -1,11 +1,18 @@
 <launch>
-	<!-- <node pkg="AutoBebop" type="control.py" name="control" /> -->
+	<node pkg="AutoBebop" type="control.py" name="control" />
+	
 	<node pkg="AutoBebop" type="mission_wall_sub.py" name="mission_wall_sub" />
 	<node pkg="AutoBebop" type="mission_gate_sub.py" name="mission_gate_sub" />
 	<node pkg="AutoBebop" type="mission_bridge_sub.py" name="mission_bridge_sub" />
+	<node pkg="AutoBebop" type="mission_target_sub.py" name="mission_target_sub" />
+	<node pkg="AutoBebop" type="mission_wall_stereo.py" name="mission_wall_stereo" />
 
 	<node pkg="AutoBebop" type="gate_detect.py" name="gate_detect" />
 	<node pkg="AutoBebop" type="bridge_detect.py" name="bridge_detect" />
+	<node pkg="AutoBebop" type="target_detect.py" name="target_detect" />
+	<node pkg="AutoBebop" type="wall_detector_dist.py" name="wall_detect" />
 
-	<node pkg="AutoBebop" type="EKF_window_static.py" name="EKF" />
+	<node pkg="AutoBebop" type="EKF_window_static.py" name="EKF_window" />
+	<node pkg="AutoBebop" type="EKF_target_static.py" name="EKF_target" />
+	<node pkg="AutoBebop" type="EKF_wall_static.py" name="EKF_wall" />
 </launch>

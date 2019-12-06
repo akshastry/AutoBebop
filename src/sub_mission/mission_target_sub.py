@@ -2,13 +2,15 @@
 
 import rospy, time
 from math import atan2, sin, cos, sqrt, asin, acos, atan
-from std_msgs.msg import String, Float64, Empty
+from std_msgs.msg import String, Float64, Empty, Int32
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
-master_mission_no = 8
+master_mission_no = 0
 
 flag_land = False
+flag_initialized = False
+
 pose_d_in = Odometry()
 
 Hz = 10.0
@@ -24,6 +26,7 @@ v_ac = 0.1
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
+yaw0 = 0.0
 
 # desired state values, current state should move towards this
 xd = 0.0
@@ -50,25 +53,35 @@ def search():
 
 	# xd = x_srch
 	# yd = y_srch
-	zd = z
+	# zd = z
 
 	dt = 1/Hz
 	t_search = t - t_search_start
-	# rospy.loginfo('t_search %f', t_search)
 
-	Amplitude_x = 0.1 + 0.01*t_search
-	Amplitude_y = 0.1 + 0.01*t_search
+	yawd = yaw0 - 30*(3.14/180)
 
-	DEN = sqrt((Amplitude_x*sin(phase))**2 + (Amplitude_y*cos(phase))**2)
-	# rospy.loginfo('DEN %f', DEN)
+	r = 0.1*t_search
+	if (r > 1.0):
+		r = 1.0
 
-	if (DEN>0.0001):
-		phase = phase + dt*(vel/DEN)
-	# rospy.loginfo('phase %f',phase)
+	# Amplitude_x = 0.1 + 0.01*t_search
+	# Amplitude_y = 0.1 + 0.01*t_search
 
-	xd = x_srch + Amplitude_x*cos(phase)
-	yd = y_srch + Amplitude_y*sin(phase)
-	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
+	# DEN = sqrt((Amplitude_x*sin(phase))**2 + (Amplitude_y*cos(phase))**2)
+	# # rospy.loginfo('DEN %f', DEN)
+
+	# if (DEN>0.0001):
+	# 	phase = phase + dt*(vel/DEN)
+	# # rospy.loginfo('phase %f',phase)
+
+	# xd = x_srch + Amplitude_x*cos(phase)
+	# yd = y_srch + Amplitude_y*sin(phase)
+
+	xd = x_srch + r*cos(yawd)
+	yd = y_srch + r*sin(yawd)
+	zd = 0.25
+
+	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
 	print("converging to target...")
@@ -77,10 +90,12 @@ def converge():
 	xd = x_obj
 	yd = y_obj
 
-	if (master_mission_no == 5):
+	# circular marker
+	if (master_mission_no == 3):
 		zd = z_obj + 1.0
 
-	if (master_mission_no == 8):
+	# square marker
+	if (master_mission_no == 5):
 		zd = 0.0
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
@@ -92,6 +107,11 @@ def land():
 	flag_land = True
 	mission_no = 3
 	pub_l.publish()
+	flag_initialized = False
+
+	master_mission_no = 4
+	pub_master_mission.publish(master_mission_no)
+	print(master_mission_no)
 	
 
 def default():
@@ -116,7 +136,8 @@ def waypoint_gen():
 
 # pose of quad in inertial frame
 def quad_pose(data):
-	global x, y ,z, vx, vy ,vz, roll, pitch, yaw
+	global x, y ,z, vx, vy ,vz, roll, pitch, yaw, yaw0
+	global mission_no, flag_yaw_initialized
 
 	x = data.pose.pose.position.x
 	y = data.pose.pose.position.y
@@ -130,6 +151,10 @@ def quad_pose(data):
 	q2 = data.pose.pose.orientation.y
 	q3 = data.pose.pose.orientation.z
 	roll, pitch, yaw = quaternion_to_euler(q0, q1, q2, q3)
+
+	# if (flag_yaw_initialized==False):
+	# 	yaw0 = yaw
+	# 	flag_yaw_initialized = True
 
 def quaternion_to_euler(w, x, y, z):
 
@@ -175,6 +200,26 @@ def pub_waypoint():
 
 pub_pose_d_in = rospy.Publisher('/pose_d_in', Odometry, queue_size=1)
 pub_l = rospy.Publisher('/bebop/land', Empty, queue_size=1, latch=True)
+pub_master_mission = rospy.Publisher('/master_mission_no', Int32, queue_size=1, latch=True)
+
+def get_master_mission(data):
+	global master_mission_no, flag_initialized, x_srch, y_srch, yaw0
+
+	master_mission_no = data.data
+
+	if (master_mission_no==3 and flag_initialized==False):
+		x_srch = x
+		y_srch = y
+		yaw0 = yaw
+		flag_initialized = True
+		mission_no = 0
+
+	if (master_mission_no==5 and flag_initialized==False):
+		x_srch = x
+		y_srch = y
+		yaw0 = yaw
+		flag_initialized = True
+		mission_no = 0
 
 def main():
 	global t, t_search_start
@@ -182,11 +227,12 @@ def main():
 
 	rospy.Subscriber('/pose_target_in_filtered', Odometry, target_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
-	time.sleep(1.0)
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
+
+	# time.sleep(1.0)
 	rate = rospy.Rate(Hz) # 10hz
 
 	t0 = rospy.get_time()
-	t_search_start = rospy.get_time() - t0
 	#search initialization ste
 	while not rospy.is_shutdown():
 		t = rospy.get_time() - t0
@@ -198,10 +244,13 @@ def main():
 		# except:
 		# 	rospy.loginfo('Some error ocurred')
 
-		if(flag_land == False):
-			waypoint_gen()
-			pub_waypoint()
-		
+		if (master_mission_no == 3 or master_mission_no == 5):
+			if(flag_land == False):
+				waypoint_gen()
+				pub_waypoint()
+		else:
+			t_search_start = rospy.get_time() - t0
+
 		rate.sleep()
 
 if __name__ == '__main__':

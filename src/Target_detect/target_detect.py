@@ -4,14 +4,14 @@ import rospy, time, cv2
 import numpy as np
 from math import sin, cos, atan2, asin, exp, sqrt
 from matplotlib import pyplot as plt
-from std_msgs.msg import String, Float64, Empty
+from std_msgs.msg import String, Float64, Empty, Int32
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 bridge = CvBridge()
 
-master_mission_no = 8
+master_mission_no = 0
 
 # observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
 obs_factor_x = 1.0
@@ -63,7 +63,7 @@ def thresholding():
 	width = int(img.shape[1] * scale)
 	height = int(img.shape[0] * scale)
 	dim = (width, height) #can also just specify desired dimensions
-	frame = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+	# img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
 	# print('Image Height:')
 	# print(height)
 	# print('Image Width:')
@@ -71,7 +71,7 @@ def thresholding():
 
 
 	#Convert from BGR to gray colorspace
-	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY);
+	frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY);
 
 	gray_img = frame.copy()
 
@@ -190,7 +190,7 @@ def get_pose(R):
 
 	y1 = -R*fx*(cam_cy - v1)*(1.0/(fx**2*v1**2 - 2.0*fx**2*v1*v2 + fx**2*v2**2 + fy**2*u1**2 - 2.0*fy**2*u1*u2 + fy**2*u2**2))**(0.5)
 
-	rospy.loginfo('x %f \t y %f \t z %f', x1, y1, z)
+	# rospy.loginfo('x %f \t y %f \t z %f', x1, y1, z)
 	pose_rel.header.frame_id = "odom"
 	pose_rel.child_frame_id = "base_link"
 	pose_rel.header.stamp = rospy.get_rostime()
@@ -225,7 +225,7 @@ def pose_cam2in():
 	y_obj_rel_b = obs_factor_y * -x_obj_rel_c + obs_offset_y
 	z_obj_rel_b = obs_factor_z * -z_obj_rel_c + obs_offset_z
 
-	rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
+	# rospy.loginfo('x_b %f \t y_b %f \t z_b %f', x_obj_rel_b, y_obj_rel_b, z_obj_rel_b)
 
 	# body to inertial frame rotation transform
 	x_obj_rel_in = x_obj_rel_b*cos(yaw) - y_obj_rel_b*sin(yaw)
@@ -288,6 +288,10 @@ def quaternion_to_euler(w, x, y, z):
 	# return [yaw, pitch, roll]
 	return [roll, pitch, yaw]
 
+def get_master_mission(data):
+	global master_mission_no
+	master_mission_no = data.data
+
 pub_pose_target_in = rospy.Publisher('/pose_target_in', Odometry, queue_size=10)
 def main():
 	global raw_image, bin_image, debug_image, pub_pose_rel, circles_image, circle_avg_image
@@ -301,38 +305,42 @@ def main():
 
 	rospy.Subscriber('/duo3d/left/image_rect', Image, callback) #should be faster than 20Hz or the rate of publishing below, else EKF might get fucked up
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
 
-	rate = rospy.Rate(20)
+	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
 
-		try:
-			frame = thresholding()
+		if (master_mission_no==3 or master_mission_no==5)
 
-			if (master_mission_no == 5):
-				#Real world Info
-				R = 0.1
-				target_detected = get_circle(frame)
+			try:
+				frame = thresholding()
 
-			if (master_mission_no == 8):
-				#Real world Info
-				R = 0.17
-				target_detected = get_square(frame)
+				if (master_mission_no == 3):
+					#Real world Info
+					R = 0.1
+					target_detected = get_circle(frame)
 
-			if (target_detected):
-				get_pose(R)
-				pose_cam2in()
-		except:
-			rospy.loginfo('Some error ocurred... in target_detect.py')
+				if (master_mission_no == 5):
+					#Real world Info
+					R = 0.17
+					target_detected = get_square(frame)
 
-		# frame = thresholding()
-		# circle_detected = get_circle(frame)
-		# if (circle_detected):
-		# 	get_pose()
+				if (target_detected):
+					get_pose(R)
+					pose_cam2in()
+			except:
+				# rospy.loginfo('Some error ocurred... in target_detect.py')
 
-		pub_bin_image.publish(bin_image)
-		pub_circles_image.publish(circles_image)
-		pub_circle_avg_image.publish(circle_avg_image)
-		pub_debug_image.publish(debug_image)
+			# frame = thresholding()
+			# circle_detected = get_circle(frame)
+			# if (circle_detected):
+			# 	get_pose()
+
+			pub_bin_image.publish(bin_image)
+			pub_circles_image.publish(circles_image)
+			pub_circle_avg_image.publish(circle_avg_image)
+			pub_debug_image.publish(debug_image)
+
 		rate.sleep()
 
 if __name__ == '__main__':

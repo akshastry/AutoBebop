@@ -493,7 +493,7 @@ def main():
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
 	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
 
-	rate = rospy.Rate(20)
+	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
 
 		if (master_mission_no == 1):

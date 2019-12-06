@@ -4,7 +4,7 @@ import rospy, time, cv2
 import numpy as np
 from math import sin, cos, atan2, asin, exp, sqrt
 from matplotlib import pyplot as plt
-from std_msgs.msg import String, Float64, Empty
+from std_msgs.msg import String, Float64, Empty, Int32
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
@@ -13,11 +13,13 @@ from scipy.spatial.transform import Rotation as R
 from scipy.linalg import expm, sinm, cosm
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
+master_mission_no = 0
+
 bridge = CvBridge()
 
 # camera Parameters
-fx = 743.595409
-fy = 750.175831
+fx = 353.939474
+fy = 353.169928
 cx = 800*0.5
 cy = 460*0.5
 # cx = 357.244818
@@ -450,6 +452,9 @@ def get_pose_in(data):
 	# r_in_b = R.from_quat(quat)
 	roll, pitch, yaw = quaternion_to_euler(quat[3], quat[0], quat[1], quat[2])
 
+def get_master_mission(data):
+	global master_mission_no
+	master_mission_no = data.data
 
 pub_pose_wall_in = rospy.Publisher('/pose_wall_in', Odometry, queue_size=10)
 
@@ -466,22 +471,27 @@ def main():
 	rospy.Subscriber('/pose_in', Odometry, get_pose_in)
 	rospy.Subscriber('/bebop/odom', Odometry, get_odom)
 
+	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
+
 	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
-		# try:
-		# 	pose_estimation()
-		# except:
-		# 	rospy.loginfo('Some error ocurred... in target_detect.py')
 
-		# pose_estimation()
-	
-		pub_temporally_matched_featured_image.publish(temporally_matched_featured_image)
-		pub_featured_image.publish(featured_image)
-		pub_flow_image.publish(flow_image)
-		pub_wall_image.publish(wall_image)
-		pub_debug_image.publish(debug_image)
+		if (master_mission_no == 4):
+			# print("debug message")
+			# try:
+			# 	pose_estimation()
+			# except:
+			# 	rospy.loginfo('Some error ocurred... in target_detect.py')
 
-		pub_pose_wall_in.publish(pose_wall_in)
+			# pose_estimation()
+		
+			pub_temporally_matched_featured_image.publish(temporally_matched_featured_image)
+			pub_featured_image.publish(featured_image)
+			pub_flow_image.publish(flow_image)
+			pub_wall_image.publish(wall_image)
+			pub_debug_image.publish(debug_image)
+
+			pub_pose_wall_in.publish(pose_wall_in)
 
 		rate.sleep()
 
