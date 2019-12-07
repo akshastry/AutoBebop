@@ -496,8 +496,9 @@ def main():
 
 
 			except Exception:
-				traceback.print_exc()
+				# traceback.print_exc()
 				# rospy.loginfo('Some error ocurred... in bridge_detect.py')
+				temp = 1
 
 		rate.sleep()
 

@@ -120,7 +120,7 @@ def main():
 
 	while not rospy.is_shutdown():
 
-		if (master_mission_no==3 or master_mission_no==5)
+		if (master_mission_no==3 or master_mission_no==5):
 			# t = rospy.get_time() - t0
 			# try:
 			# 	control()

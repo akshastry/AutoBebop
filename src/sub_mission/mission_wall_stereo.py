@@ -56,7 +56,7 @@ def takeoff():
 
 	# takeoff
 	pub_to.publish()
-	time.sleep(4.0)
+	time.sleep(5.0)
 	mission_no = 1
 
 def estimate():

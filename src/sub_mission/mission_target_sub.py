@@ -47,9 +47,10 @@ mission_no = 0
 
 def search():
 	print("searching for target...")
-	global xd, yd, zd, x_target, y_target
+	global xd, yd, zd, yawd, x_target, y_target
 	global t, t_search_start, t_search
 	global phase
+	global master_mission_no
 
 	# xd = x_srch
 	# yd = y_srch
@@ -58,11 +59,23 @@ def search():
 	dt = 1/Hz
 	t_search = t - t_search_start
 
-	yawd = yaw0 - 30*(3.14/180)
-
 	r = 0.1*t_search
 	if (r > 1.0):
 		r = 1.0
+
+	if (master_mission_no == 3):
+		yawd = yaw0 - 30*(3.14/180)
+		xd = x_srch + r*cos(yawd)
+		yd = y_srch + r*sin(yawd)
+		zd = 0.25
+
+	if (master_mission_no == 5):
+		yawd = yaw0 - 30*(3.14/180)
+		xd = x_srch + r*cos(yawd)
+		yd = y_srch + r*sin(yawd)
+		zd = 0.25 + 0.75
+		yawd = yaw0
+		# print(yaw0)
 
 	# Amplitude_x = 0.1 + 0.01*t_search
 	# Amplitude_y = 0.1 + 0.01*t_search
@@ -77,41 +90,58 @@ def search():
 	# xd = x_srch + Amplitude_x*cos(phase)
 	# yd = y_srch + Amplitude_y*sin(phase)
 
-	xd = x_srch + r*cos(yawd)
-	yd = y_srch + r*sin(yawd)
-	zd = 0.25
-
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
 	print("converging to target...")
-	global mission_no, xd, yd, zd, x, y, z
+	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
+
+	# yawd = yaw0 - 30*(3.14/180)
+
 	xd = x_obj
 	yd = y_obj
 
 	# circular marker
 	if (master_mission_no == 3):
-		zd = z_obj + 1.0
+		# zd = z_obj + 1.0
+		zd = 0.0
+		yawd = -90*(3.14/180)
 
 	# square marker
 	if (master_mission_no == 5):
-		zd = 0.0
+		zd = 0.25 + 0.75
+		yawd = yaw0
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + 0*(z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
 		mission_no = 2
 
 def land():
 	print("landing...")
-	global mission_no, flag_land, pub_l
+	global mission_no, flag_land, pub_l, flag_initialized
+	global master_mission_no
+
 	flag_land = True
 	mission_no = 3
 	pub_l.publish()
+	print("Land command published")
 	flag_initialized = False
+	
+	print("Sleeping for 4 secs")
+	time.sleep(4.0)
+	print("Woke up from sleep")	
 
-	master_mission_no = 4
-	pub_master_mission.publish(master_mission_no)
-	print(master_mission_no)
+	if (master_mission_no == 3):
+		flag_land = False
+		master_mission_no = 4
+		pub_master_mission.publish(master_mission_no)
+		print(master_mission_no)
+
+	if (master_mission_no == 5):
+		master_mission_no = 6
+		pub_master_mission.publish(master_mission_no)
+		print(master_mission_no)
+		print("End of mission")
 	
 
 def default():
@@ -180,7 +210,7 @@ def target_feedback(data):
 	z_obj = data.pose.pose.position.z
 
 def pub_waypoint():
-	global xd, yd, zd, pose_d_in, pub_pose_d_in
+	global xd, yd, zd, yawd, pose_d_in, pub_pose_d_in
 	pose_d_in.header.frame_id = "odom"
 	pose_d_in.child_frame_id = "base_link"
 	pose_d_in.header.stamp = rospy.get_rostime()
@@ -190,10 +220,10 @@ def pub_waypoint():
 	pose_d_in.twist.twist.linear.x = 0.0
 	pose_d_in.twist.twist.linear.y = 0.0
 	pose_d_in.twist.twist.linear.z = 0.0
-	pose_d_in.pose.pose.orientation.w = 1.0
+	pose_d_in.pose.pose.orientation.w = cos(0.5*yawd)
 	pose_d_in.pose.pose.orientation.x = 0.0
 	pose_d_in.pose.pose.orientation.y = 0.0
-	pose_d_in.pose.pose.orientation.z = 0.0
+	pose_d_in.pose.pose.orientation.z = sin(0.5*yawd)
 
 	pub_pose_d_in.publish(pose_d_in)
 
@@ -204,6 +234,7 @@ pub_master_mission = rospy.Publisher('/master_mission_no', Int32, queue_size=1, 
 
 def get_master_mission(data):
 	global master_mission_no, flag_initialized, x_srch, y_srch, yaw0
+	global mission_no
 
 	master_mission_no = data.data
 

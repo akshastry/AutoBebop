@@ -132,7 +132,7 @@ def main():
 	while not rospy.is_shutdown():
 
 		if (master_mission_no == 4):
-			print("debug message")
+			# print("debug message")
 			# t = rospy.get_time() - t0
 			# try:
 			# 	control()

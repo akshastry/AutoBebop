@@ -101,7 +101,7 @@ def get_circle(frame):
 	cy = []
 	img1 = img.copy()
 	if circles is not None:
-		print(len(circles))
+		# print(len(circles))
 		circles = np.uint16(np.around(circles))
 		for i in circles[0,:]:
 			# draw the outer circle
@@ -141,7 +141,7 @@ def get_square(frame):
 	cy = []
 	img1 = img.copy()
 	if circles is not None:
-		print(len(circles))
+		# print(len(circles))
 		circles = np.uint16(np.around(circles))
 		for i in circles[0,:]:
 			# draw the outer circle
@@ -310,7 +310,7 @@ def main():
 	rate = rospy.Rate(10)
 	while not rospy.is_shutdown():
 
-		if (master_mission_no==3 or master_mission_no==5)
+		if (master_mission_no==3 or master_mission_no==5):
 
 			try:
 				frame = thresholding()
@@ -330,6 +330,7 @@ def main():
 					pose_cam2in()
 			except:
 				# rospy.loginfo('Some error ocurred... in target_detect.py')
+				temp = 1
 
 			# frame = thresholding()
 			# circle_detected = get_circle(frame)

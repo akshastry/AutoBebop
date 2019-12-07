@@ -227,7 +227,7 @@ def target_feedback(data):
 		_,_,yaw_obj = quaternion_to_euler(q0, q1, q2, q3)
 
 def pub_waypoint():
-	global xd, yd, zd, pose_d_in, pub_pose_d_in
+	global xd, yd, zd, yawd, pose_d_in, pub_pose_d_in
 	pose_d_in.header.frame_id = "odom"
 	pose_d_in.child_frame_id = "base_link"
 	pose_d_in.header.stamp = rospy.get_rostime()

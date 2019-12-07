@@ -64,25 +64,25 @@ def altitude():
 
 	xd = 0.0
 	yd = 0.0
-	zd = 0.5
+	zd = 0.6
 	yawd = 0.0
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
-		rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + 0.8, y_obj, z_obj)
-		usr_in = raw_input('Should I cross? :( :')
-		if(usr_in=="1"):
-			mission_no = 3
-		else:
-			mission_no = 2
+		# rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + 0.8, y_obj, z_obj)
+		# usr_in = raw_input('Should I cross? :( :')
+		# if(usr_in=="1"):
+		# 	mission_no = 3
+		# else:
+		mission_no = 2
 
 def cross():
 	print("crossing the wall...")
 	global mission_no, xd, yd, zd, x, y, z, yawd
 	global r_ac, v_ac, x_obj, y_obj, master_mission_no
 
-	xd = 1.7
+	xd = 1.9
 	yd = 0.0
-	zd = 0.5
+	zd = 0.6
 	yawd = 0.0
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 5*r_ac**2 and (vx**2 + vy**2 + vz**2) < 5*v_ac**2):
@@ -205,7 +205,7 @@ def main():
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
 	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
 	
-	# time.sleep(1.0)
+	time.sleep(2.0)
 	
 	rate = rospy.Rate(Hz) # 10hz
 

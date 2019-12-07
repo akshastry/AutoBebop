@@ -384,59 +384,61 @@ def get_odom(data):
 	global image, prev_image
 	global t_old, dt
 
-	pos[0] = data.pose.pose.position.x
-	pos[1] = data.pose.pose.position.y
-	pos[2] = data.pose.pose.position.z
+	if (master_mission_no == 4):
+		
+		pos[0] = data.pose.pose.position.x
+		pos[1] = data.pose.pose.position.y
+		pos[2] = data.pose.pose.position.z
 
-	vel[0] = data.twist.twist.linear.x
-	vel[1] = data.twist.twist.linear.y
-	vel[2] = data.twist.twist.linear.z
+		vel[0] = data.twist.twist.linear.x
+		vel[1] = data.twist.twist.linear.y
+		vel[2] = data.twist.twist.linear.z
 
-	# print(vel[1])
-	# print(vel_prev[1])
-	# rospy.loginfo('v_y %f \t v_y_prev %f',vel[1],vel_prev[1])
+		# print(vel[1])
+		# print(vel_prev[1])
+		# rospy.loginfo('v_y %f \t v_y_prev %f',vel[1],vel_prev[1])
 
-	if (np.sign(vel[1])!=np.sign(vel_prev[1])):
+		if (np.sign(vel[1])!=np.sign(vel_prev[1])):
 
-		# rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
+			# rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
 
-		t = rospy.get_time()
-		dt = t - t_old
+			t = rospy.get_time()
+			dt = t - t_old
 
-		dist = np.linalg.norm(pos-pos_prev)
-		# print(dist)
+			dist = np.linalg.norm(pos-pos_prev)
+			# print(dist)
 
-		pose_estimation(dist)
+			pose_estimation(dist)
 
-		pos_prev = np.copy(pos)
+			pos_prev = np.copy(pos)
 
-		prev_image = image
-		t_old = t
+			prev_image = image
+			t_old = t
 
-	vel_prev = np.copy(vel)
+		vel_prev = np.copy(vel)
 
-	# print(vel[1])
+		# print(vel[1])
 
-	# if (abs(vel[1]) < 0.02):
-	# 	# flag_entering = True
+		# if (abs(vel[1]) < 0.02):
+		# 	# flag_entering = True
 
-	# 	rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
-	# 	# time.sleep(0.3)
+		# 	rospy.loginfo('v_y %f \t pos_y %f \t pos_y_prev %f',vel[1],pos[1],pos_prev[1])
+		# 	# time.sleep(0.3)
 
-	# 	t = rospy.get_time()
-	# 	dt = t - t_old
+		# 	t = rospy.get_time()
+		# 	dt = t - t_old
 
-	# 	dist = np.linalg.norm(pos-pos_prev)
-	# 	# print(dist)
+		# 	dist = np.linalg.norm(pos-pos_prev)
+		# 	# print(dist)
 
-	# 	pose_estimation(dist)
+		# 	pose_estimation(dist)
 
-	# 	pos_prev = pos
+		# 	pos_prev = pos
 
-	# 	prev_image = image
-	# 	t_old = t
+		# 	prev_image = image
+		# 	t_old = t
 
-	# 	time.sleep(4.0)
+		# 	time.sleep(4.0)
 
 def get_pose_in(data):
 	global pos_in, quat, r_in_b, yaw

@@ -20,7 +20,7 @@ obs_factor_z = 1.0
 obs_factor_yaw = 1.0
 
 obs_offset_x = 0.0
-obs_offset_y = -0.50
+obs_offset_y = -0.40
 obs_offset_z = -0.36
 obs_offset_yaw = 0*(3.14/180.0)
 
