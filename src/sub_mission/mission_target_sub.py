@@ -73,7 +73,7 @@ def search():
 		yawd = yaw0 - 30*(3.14/180)
 		xd = x_srch + r*cos(yawd)
 		yd = y_srch + r*sin(yawd)
-		zd = 0.25 + 0.75
+		zd = 0.25 + 1.25
 		yawd = yaw0
 		# print(yaw0)
 
@@ -110,7 +110,7 @@ def converge():
 
 	# square marker
 	if (master_mission_no == 5):
-		zd = 0.25 + 0.75
+		zd = 0.25 + 1.25
 		yawd = yaw0
 
 	if( ((x-xd)**2 + (y-yd)**2 + 0*(z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):
@@ -123,8 +123,13 @@ def land():
 
 	flag_land = True
 	mission_no = 3
+	
 	pub_l.publish()
 	print("Land command published")
+	time.sleep(0.5)
+	pub_l.publish()
+	print("Land command published again")
+
 	flag_initialized = False
 	
 	print("Sleeping for 4 secs")
