@@ -102,6 +102,13 @@ def cross():
 	print("crossing the gate...")
 	global mission_no, xd, yd, yawd, zd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj, yaw_obj, master_mission_no
+	global cross_bias
+
+	#integrate cross_bias here...
+	#cross_bias is desired y-position change in body frame to avoid hitting side of gate
+	#only update cross_bias and add to desired setpoints if magnitude increases!
+	#^^so that update is permanant and does not go back to 0 after vehicle correction
+	#print(cross_bias) #test for correct tuning before implimenting
 
 	wpt_dist = 0.5
 	
@@ -210,6 +217,10 @@ def get_master_mission(data):
 		y_srch = y
 		flag_initialized = True
 
+def get_cross_bias(data):
+	global cross_bias
+	cross_bias = data.data
+
 def pub_waypoint():
 	global xd, yd, zd, yawd, pose_d_in, pub_pose_d_in
 	pose_d_in.header.frame_id = "odom"
@@ -240,6 +251,7 @@ def main():
 	rospy.Subscriber('/pose_gate_in_filtered', Odometry, target_feedback)
 	rospy.Subscriber('/pose_in', Odometry, quad_pose)
 	rospy.Subscriber('/master_mission_no', Int32, get_master_mission)
+	rospy.Subscriber('/cross_bias', Float64, get_cross_bias)
 
 	# time.sleep(1.0)
 	rate = rospy.Rate(Hz) # 10hz
