@@ -99,7 +99,7 @@ def converge():
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
-	yaw_obj = -90*(3.14/180)
+	yaw_obj = -90*(3.14/180)-10*(3.14/180)
 
 	wpt_dist = 0.8
 
@@ -118,7 +118,7 @@ def cross():
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
-	yaw_obj = -90*(3.14/180)
+	yaw_obj = -90*(3.14/180)-10*(3.14/180)
 
 	wpt_dist = 0.4
 

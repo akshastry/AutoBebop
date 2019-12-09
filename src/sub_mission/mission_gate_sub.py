@@ -85,7 +85,7 @@ def converge():
 	xd = x_obj - wpt_dist*cos(yaw_obj)
 	yd = y_obj - wpt_dist*sin(yaw_obj)
 	zd = z_obj + 0.05
-	yawd = yaw_obj
+	yawd = yaw_obj + 0*(3.14/180)
 	# yawd = yaw_obj + atan2(y_obj - y, x_obj - x)
 
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
@@ -104,11 +104,12 @@ def cross():
 	global r_ac, v_ac, x_obj, y_obj, yaw_obj, master_mission_no
 
 	wpt_dist = 0.5
-
-	xd = x_obj + wpt_dist*cos(yaw_obj)
-	yd = y_obj + wpt_dist*sin(yaw_obj)
+	
+	yaw_tr_offset = 10*(3.14/180)
+	xd = x_obj + wpt_dist*cos(yaw_obj+yaw_tr_offset)
+	yd = y_obj + wpt_dist*sin(yaw_obj+yaw_tr_offset)
 	zd = z_obj + 0.05
-	yawd = yaw_obj
+	yawd = yaw_obj + 0*(3.14/180)
 
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 

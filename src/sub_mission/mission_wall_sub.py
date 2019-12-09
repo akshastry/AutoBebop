@@ -80,7 +80,7 @@ def cross():
 	global mission_no, xd, yd, zd, x, y, z, yawd
 	global r_ac, v_ac, x_obj, y_obj, master_mission_no
 
-	xd = 1.9
+	xd = 1.8
 	yd = 0.0
 	zd = 0.6
 	yawd = 0.0

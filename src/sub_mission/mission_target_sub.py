@@ -73,7 +73,7 @@ def search():
 		yawd = yaw0 - 30*(3.14/180)
 		xd = x_srch + r*cos(yawd)
 		yd = y_srch + r*sin(yawd)
-		zd = 0.25 + 1.25
+		zd = 0.25
 		yawd = yaw0
 		# print(yaw0)
 
@@ -106,11 +106,11 @@ def converge():
 	if (master_mission_no == 3):
 		# zd = z_obj + 1.0
 		zd = 0.0
-		yawd = -90*(3.14/180)
+		yawd = -90*(3.14/180)-10*(3.14/180)
 
 	# square marker
 	if (master_mission_no == 5):
-		zd = 0.25 + 1.25
+		zd = 0.25
 		yawd = yaw0
 
 	if( ((x-xd)**2 + (y-yd)**2 + 0*(z-zd)**2) < r_ac**2 and (vx**2 + vy**2 + vz**2) < v_ac**2):

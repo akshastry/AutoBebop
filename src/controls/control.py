@@ -6,7 +6,7 @@ from std_msgs.msg import String, Float64, Empty
 from geometry_msgs.msg import PoseStamped, Twist, PoseWithCovariance
 from nav_msgs.msg import Odometry
 
-flag_initialize=True
+flag_initialize=False
 flag_land = True
 
 # to account for odometry drift on different surfaces
@@ -166,18 +166,18 @@ def feedback(data):
 	global t0, x0, y0, z0, yaw0, x, y ,z, vx, vy ,vz, roll, pitch, yaw
 	global flag_initialize
 
-	# if (flag_initialize==True):
-	# 	t0 = rospy.get_time()
-	# 	x0 = data.pose.pose.position.x
-	# 	y0 = data.pose.pose.position.y
-	# 	z0 = data.pose.pose.position.z
-	# 	q0 = data.pose.pose.orientation.w
-	# 	q1 = data.pose.pose.orientation.x
-	# 	q2 = data.pose.pose.orientation.y
-	# 	q3 = data.pose.pose.orientation.z
-	# 	roll0, pitch0, yaw0 = quaternion_to_euler(q0, q1, q2, q3)
-	# 	flag_initialize = False
-	# 	rospy.loginfo('Initialized')
+	if (flag_initialize==True):
+		t0 = rospy.get_time()
+		x0 = data.pose.pose.position.x
+		y0 = data.pose.pose.position.y
+		z0 = data.pose.pose.position.z
+		q0 = data.pose.pose.orientation.w
+		q1 = data.pose.pose.orientation.x
+		q2 = data.pose.pose.orientation.y
+		q3 = data.pose.pose.orientation.z
+		roll0, pitch0, yaw0 = quaternion_to_euler(q0, q1, q2, q3)
+		flag_initialize = False
+		rospy.loginfo('Initialized Control with x: %f \t y: %f \t z: %f \t yaw: %f',x0,y0,z0,yaw0)
 
 	xm = data.pose.pose.position.x*K_surface - x0
 	ym = data.pose.pose.position.y*K_surface - y0
@@ -246,13 +246,13 @@ def callback_takeoff(data):
 	
 	print(flag_land)
 
-	t0 = rospy.get_time()
-	x0 = x
-	y0 = y
-	z0 = z
-	yaw0 = yaw
-	# flag_initialize = False
-	rospy.loginfo('Initialized Control with x: %f \t y: %f \t z: %f \t yaw: %f',x0,y0,z0,yaw0)
+	# t0 = rospy.get_time()
+	# x0 = x
+	# y0 = y
+	# z0 = z
+	# yaw0 = yaw
+	flag_initialize = True
+	# rospy.loginfo('Initialized Control with x: %f \t y: %f \t z: %f \t yaw: %f',x0,y0,z0,yaw0)
 
 def main():
 	global t, t0, flag_land

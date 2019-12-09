@@ -153,7 +153,7 @@ def main():
 			pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,P[3,3]])
 			
 			# print(np.linalg.norm(pose_EKF.pose.covariance))
-			if (np.linalg.norm(pose_EKF.pose.covariance)<0.03):
+			if (np.linalg.norm(pose_EKF.pose.covariance)<0.04):
 				# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', X_k[0], X_k[1], X_k[2], X_k[3])
 				pub.publish(pose_EKF)
 
