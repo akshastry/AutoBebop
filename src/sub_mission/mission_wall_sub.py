@@ -20,7 +20,7 @@ phase = 0.0
 
 # convergence radii
 r_ac = 0.06
-v_ac = 0.1
+v_ac = 0.15
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
@@ -67,7 +67,7 @@ def altitude():
 	zd = 0.6
 	yawd = 0.0
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 5*r_ac**2 and (vx**2 + vy**2 + vz**2) < 5*v_ac**2):
 		# rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + 0.8, y_obj, z_obj)
 		# usr_in = raw_input('Should I cross? :( :')
 		# if(usr_in=="1"):

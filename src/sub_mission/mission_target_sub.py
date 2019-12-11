@@ -22,7 +22,7 @@ phase = 0.0
 
 # convergence radii
 r_ac = 0.06
-v_ac = 0.1
+v_ac = 0.15
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
@@ -59,7 +59,7 @@ def search():
 	dt = 1/Hz
 	t_search = t - t_search_start
 
-	r = 0.1*t_search
+	r = 0.3*t_search
 	if (r > 1.0):
 		r = 1.0
 

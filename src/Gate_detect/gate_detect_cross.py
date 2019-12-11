@@ -13,16 +13,6 @@ from decimal import Decimal
 
 master_mission_no = 0
 
-# observation factors for camera (tuning param), should not be necessary if camera is properly calibrated and pnp is working
-obs_factor_x = 1.0
-obs_factor_y = 1.0
-obs_factor_z = 1.0
-obs_factor_yaw = 1.0
-
-obs_offset_x = 0.0
-obs_offset_y = -0.40
-obs_offset_z = -0.36
-obs_offset_yaw = 0*(3.14/180.0)
 
 kP_cross = 0.3
 max_bias = .1 #meters
@@ -119,7 +109,7 @@ def getBias():
 		#convert cX to normalized image coordinates
 		cX = (cX - width/2.0)/width
 
-		if area_ratio > 0.04 and abs(cX) > 0.2: #tune these if needed
+		if area_ratio > 0.015 and abs(cX) > 0.075: #tune these if needed
 			cross_bias = kP_cross*cX
 			if abs(cross_bias) > max_bias: #limit bias to max magnitude allowed
 				cross_bias = max_bias*np.sign(cross_bias)
@@ -130,13 +120,15 @@ def getBias():
 		cross_bias = 0.0
 
 	#lp filter bias
-	B = 0.7
+	B = 1.0
 	cross_bias = B*cross_bias + (1.0 - B)*cross_bias_prev
 	#final limits on cross bias
 	if abs(cross_bias) < .0001: #min bias, so filter doesn't keep decreasing
 		cross_bias = 0.0
 	if abs(cross_bias) > max_bias: #limit bias to max magnitude allowed
 		cross_bias = max_bias*np.sign(cross_bias)
+
+	print(cross_bias)
 
 def callback(image):
 	global raw_image
@@ -168,7 +160,7 @@ def main():
 	while not rospy.is_shutdown():
 
 		#if (master_mission_no == 1): #change when done troubleshooting
-		if (master_mission_no == 0):
+		if (master_mission_no == 1):
 			# try:
 			# 	thresholding()
 			# 	corners = get_corners()

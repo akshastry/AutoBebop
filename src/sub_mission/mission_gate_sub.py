@@ -20,8 +20,8 @@ t = t_search = t_search_start = t_window_detect = 0.0
 phase = 0.0
 
 # convergence radii
-r_ac = 0.05
-v_ac = 0.08
+r_ac = 0.06
+v_ac = 0.15
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
@@ -34,6 +34,12 @@ yawd = 0.0
 
 # target pose in inertial frame (from EKF)
 x_obj = y_obj = z_obj = yaw_obj = 0.0
+
+# for the crossing correction
+Delta_xd = Delta_yd = 0.0
+k_cross = 1.0
+Delta_sat = 0.5
+cross_bias = 0.0
 
 # initial target location and covariance
 x_srch = 0.0
@@ -91,18 +97,20 @@ def converge():
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 1.0*r_ac**2 and (vx**2 + vy**2 + vz**2) < 1.0*v_ac**2):
-		rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + wpt_dist*cos(yaw_obj), y_obj + wpt_dist*sin(yaw_obj), z_obj)
-		usr_in = raw_input('Should I cross? :( :')
-		if(usr_in=="1"):
-			mission_no = 3
-		else:
-			mission_no = 2
+		# rospy.loginfo('Go to x %f \t y %f \t z %f', x_obj + wpt_dist*cos(yaw_obj), y_obj + wpt_dist*sin(yaw_obj), z_obj)
+		# usr_in = raw_input('Should I cross? :( :')
+		# if(usr_in=="1"):
+			# mission_no = 3
+		# else:
+		mission_no = 2
+		Delta_xd = 0.0
+		Delta_yd = 0.0
 
 def cross():
 	print("crossing the gate...")
 	global mission_no, xd, yd, yawd, zd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj, yaw_obj, master_mission_no
-	global cross_bias
+	global cross_bias, Delta_yd, Delta_xd
 
 	#integrate cross_bias here...
 	#cross_bias is desired y-position change in body frame to avoid hitting side of gate
@@ -112,10 +120,28 @@ def cross():
 
 	wpt_dist = 0.5
 	
-	yaw_tr_offset = 10*(3.14/180)
-	xd = x_obj + wpt_dist*cos(yaw_obj+yaw_tr_offset)
-	yd = y_obj + wpt_dist*sin(yaw_obj+yaw_tr_offset)
+	# yaw_tr_offset = 10*(3.14/180)
+	# xd = x_obj + wpt_dist*cos(yaw_obj+yaw_tr_offset)
+	# yd = y_obj + wpt_dist*sin(yaw_obj+yaw_tr_offset)
+	# zd = z_obj + 0.05
+	# yawd = yaw_obj + 0*(3.14/180)
+	
+	yaw_tr_offset = 0*(3.14/180)
+
+	Delta_xd = Delta_xd - k_cross*cross_bias*sin(yaw_obj)
+	Delta_yd = Delta_yd + k_cross*cross_bias*cos(yaw_obj)
+
+	if (Delta_xd**2+Delta_yd**2>Delta_sat**2):
+		Delta_xd = -np.sign(cross_bias)*Delta_sat*sin(yaw_obj)
+		Delta_yd = np.sign(cross_bias)*Delta_sat*cos(yaw_obj)
+		print("Delta Saturated")
+
+	rospy.loginfo('Delta_xd %f \t Delta_yd %f', Delta_xd, Delta_yd)
+
+	xd = x_obj + wpt_dist*cos(yaw_obj+yaw_tr_offset) + Delta_xd
+	yd = y_obj + wpt_dist*sin(yaw_obj+yaw_tr_offset) + Delta_yd
 	zd = z_obj + 0.05
+
 	yawd = yaw_obj + 0*(3.14/180)
 
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
@@ -191,6 +217,12 @@ def quaternion_to_euler(w, x, y, z):
 	# return [yaw, pitch, roll]
 	return [roll, pitch, yaw]
 
+def get_cross_bias(data):
+	global cross_bias
+
+	if(mission_no == 2):
+		cross_bias = data.data
+
 def target_feedback(data):
 	global x_obj, y_obj, z_obj, yaw_obj, mission_no
 
@@ -216,10 +248,6 @@ def get_master_mission(data):
 		x_srch = x
 		y_srch = y
 		flag_initialized = True
-
-def get_cross_bias(data):
-	global cross_bias
-	cross_bias = data.data
 
 def pub_waypoint():
 	global xd, yd, zd, yawd, pose_d_in, pub_pose_d_in

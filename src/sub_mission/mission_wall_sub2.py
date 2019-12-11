@@ -20,7 +20,7 @@ phase = 0.0
 
 # convergence radii
 r_ac = 0.06
-v_ac = 0.1
+v_ac = 0.15
 yaw_ac = 10*(3.14/180)
 
 # current state of quad

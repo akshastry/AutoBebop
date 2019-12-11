@@ -9,6 +9,7 @@
 	<!-- <node pkg="AutoBebop" type="mission_wall_stereo.py" name="mission_wall_stereo" /> -->
 
 	<node pkg="AutoBebop" type="gate_detect.py" name="gate_detect" />
+	<node pkg="AutoBebop" type="gate_detect_cross.py" name="gate_detect_cross" />
 	<node pkg="AutoBebop" type="bridge_detect.py" name="bridge_detect" />
 	<node pkg="AutoBebop" type="target_detect.py" name="target_detect" />
 	<!-- <node pkg="AutoBebop" type="wall_detector_dist.py" name="wall_detect" /> -->

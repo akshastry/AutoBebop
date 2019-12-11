@@ -22,7 +22,7 @@ phase = 0.0
 
 # convergence radii
 r_ac = 0.06
-v_ac = 0.1
+v_ac = 0.15
 
 # current state of quad
 x = y = z = vx = vy = vz = roll = pitch = yaw = 0.0
@@ -74,7 +74,7 @@ def search_water():
 
 	yawd = yaw0 - 30*(3.14/180)
 
-	r = 0.1*t_search
+	r = 0.3*t_search
 	if (r > 2.0):
 		r = 2.0
 
@@ -110,7 +110,7 @@ def converge():
 
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 3*r_ac**2 and (vx**2 + vy**2 + vz**2) < 3*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
 		mission_no = 2
 
 def cross():

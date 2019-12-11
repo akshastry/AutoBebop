@@ -42,7 +42,7 @@ yawd = 0.0*(3.14/180.0)
 ctrl = Twist()
 pose_in = Odometry()
 
-Trust_R = 0.55
+Trust_R = 2.0*0.55
 
 A = 0.3
 T = 10.0
