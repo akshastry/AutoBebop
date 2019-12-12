@@ -64,7 +64,7 @@ def altitude():
 	global mission_no, xd, yd, zd, x, y, z, yawd
 	global r_ac, v_ac, x_obj, y_obj
 
-	yawd = -65*(3.14/180)
+	yawd = -80*(3.14/180)
 	xd = 0.0
 	yd = 0.0
 	zd = 0.0
@@ -85,11 +85,11 @@ def cross():
 
 	r = 2.5
 
-	yawd = -75*(3.14/180)-0*(3.14/180)
+	yawd = -80*(3.14/180)-0*(3.14/180)
 	xd = 0.0 + r*cos(yawd)
 	yd = 0.0 + r*sin(yawd)
 	zd = 0.0
-	yawd = -75*(3.14/180)
+	yawd = -80*(3.14/180)
 
 	if( ((x-xd)**2 + (y-yd)**2 + 0*(z-zd)**2) < 6*r_ac**2 and (vx**2 + vy**2 + vz**2) < 6*v_ac**2):
 		# mission_no = 3

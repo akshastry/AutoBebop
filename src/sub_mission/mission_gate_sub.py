@@ -37,7 +37,7 @@ x_obj = y_obj = z_obj = yaw_obj = 0.0
 
 # for the crossing correction
 Delta_xd = Delta_yd = 0.0
-k_cross = 1.0
+k_cross = 2.0*1.0
 Delta_sat = 0.5
 cross_bias = 0.0
 
@@ -66,8 +66,8 @@ def estimate():
 	t_search = t - t_search_start
 	# rospy.loginfo('t_search %f', t_search)
 
-	Amplitude_z = 0.01*t_search
-	Amplitude_yaw = 0.01*t_search
+	Amplitude_z = 0.1 + 0.02*t_search
+	Amplitude_yaw = 0.1 + 0.02*t_search
 
 	DEN = sqrt((Amplitude_z*sin(phase))**2 + (Amplitude_z*cos(phase))**2)
 	# rospy.loginfo('DEN %f', DEN)
