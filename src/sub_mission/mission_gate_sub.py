@@ -54,7 +54,7 @@ T = 10.0
 omega = 2.0*3.14/T
 
 def estimate():
-	print("Estimating Gate position...")
+	# print("Estimating Gate position...")
 	global xd, yd, zd, yawd, x_target, y_target
 	global t, t_search_start, t_search
 	global phase
@@ -82,7 +82,7 @@ def estimate():
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
-	print("converging to Gate...")
+	# print("converging to Gate...")
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj, yaw_obj
 
@@ -103,11 +103,12 @@ def converge():
 			# mission_no = 3
 		# else:
 		mission_no = 2
+		print("crossing the gate...")
 		Delta_xd = 0.0
 		Delta_yd = 0.0
 
 def cross():
-	print("crossing the gate...")
+	# print("crossing the gate...")
 	global mission_no, xd, yd, yawd, zd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj, yaw_obj, master_mission_no
 	global cross_bias, Delta_yd, Delta_xd
@@ -228,6 +229,7 @@ def target_feedback(data):
 
 	if(mission_no == 0):
 		mission_no = 1
+		print("converging to Gate...")
 
 	if(mission_no == 1):
 		x_obj = data.pose.pose.position.x
@@ -245,6 +247,7 @@ def get_master_mission(data):
 	master_mission_no = data.data
 
 	if (master_mission_no==1 and flag_initialized==False):
+		print("Estimating Gate position...")
 		x_srch = x
 		y_srch = y
 		flag_initialized = True

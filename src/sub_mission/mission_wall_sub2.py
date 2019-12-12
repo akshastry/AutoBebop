@@ -56,10 +56,11 @@ def takeoff():
 	pub_to.publish()
 	time.sleep(5.0)
 	mission_no = 1
+	print("altitude and yaw...")
 
 
 def altitude():
-	print("altitude and yaw...")
+	# print("altitude and yaw...")
 	global mission_no, xd, yd, zd, x, y, z, yawd
 	global r_ac, v_ac, x_obj, y_obj
 
@@ -75,9 +76,10 @@ def altitude():
 		 	mission_no = 3
 		else:
 			mission_no = 2
+			print("crossing the wall...")
 
 def cross():
-	print("crossing the wall...")
+	# print("crossing the wall...")
 	global mission_no, xd, yd, zd, x, y, z, yawd
 	global r_ac, v_ac, x_obj, y_obj, master_mission_no
 
@@ -89,7 +91,7 @@ def cross():
 	zd = 0.0
 	yawd = -75*(3.14/180)
 
-	if( ((x-xd)**2 + (y-yd)**2 + 0*(z-zd)**2) < 5*r_ac**2 and (vx**2 + vy**2 + vz**2) < 5*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + 0*(z-zd)**2) < 6*r_ac**2 and (vx**2 + vy**2 + vz**2) < 6*v_ac**2):
 		# mission_no = 3
 		master_mission_no = 5
 		pub_master_mission.publish(master_mission_no)

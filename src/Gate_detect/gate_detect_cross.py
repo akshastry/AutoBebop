@@ -128,7 +128,7 @@ def getBias():
 	if abs(cross_bias) > max_bias: #limit bias to max magnitude allowed
 		cross_bias = max_bias*np.sign(cross_bias)
 
-	print(cross_bias)
+	# print(cross_bias)
 
 def callback(image):
 	global raw_image

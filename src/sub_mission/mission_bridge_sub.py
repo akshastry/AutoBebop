@@ -64,7 +64,7 @@ mission_no = 0
 # 	rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def search_water():
-	print("searching for bridge...")
+	# print("searching for bridge...")
 	global xd, yd, zd, yawd, x_target, y_target
 	global t, t_search_start, t_search
 	global phase
@@ -72,9 +72,9 @@ def search_water():
 	dt = 1/Hz
 	t_search = t - t_search_start
 
-	yawd = yaw0 - 30*(3.14/180)
+	yawd = yaw0 - 50*(3.14/180)
 
-	r = 0.3*t_search
+	r = 0.4*t_search
 	if (r > 2.0):
 		r = 2.0
 
@@ -95,7 +95,7 @@ def search_water():
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
-	print("converging to bridge...")
+	# print("converging to bridge...")
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
@@ -112,9 +112,10 @@ def converge():
 
 	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
 		mission_no = 2
+		print("crossing the bridge...")
 
 def cross():
-	print("crossing the bridge...")
+	# print("crossing the bridge...")
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
@@ -127,7 +128,7 @@ def cross():
 	zd = 0.25
 	yawd = yaw_obj
 
-	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 4*r_ac**2 and (vx**2 + vy**2 + vz**2) < 4*v_ac**2):
+	if( ((x-xd)**2 + (y-yd)**2 + (z-zd)**2) < 6*r_ac**2 and (vx**2 + vy**2 + vz**2) < 6*v_ac**2):
 		# mission_no = 3
 		master_mission_no = 3
 		pub_master_mission.publish(master_mission_no)
@@ -215,6 +216,7 @@ def target_feedback(data):
 
 	if(mission_no == 0):
 		mission_no = 1
+		print("converging to bridge...")
 
 	if(mission_no == 1):
 		x_obj = data.pose.pose.position.x
@@ -255,6 +257,7 @@ def get_master_mission(data):
 	master_mission_no = data.data
 
 	if (master_mission_no==2 and flag_initialized==False):
+		print("searching for bridge...")
 		x_srch = x
 		y_srch = y
 		yaw0 = yaw

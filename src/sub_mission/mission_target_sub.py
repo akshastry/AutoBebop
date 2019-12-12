@@ -21,7 +21,7 @@ t = t_search = t_search_start = t_window_detect = 0.0
 phase = 0.0
 
 # convergence radii
-r_ac = 0.06
+r_ac = 0.07
 v_ac = 0.15
 
 # current state of quad
@@ -46,7 +46,7 @@ cov_y = 0.0
 mission_no = 0
 
 def search():
-	print("searching for target...")
+	# print("searching for target...")
 	global xd, yd, zd, yawd, x_target, y_target
 	global t, t_search_start, t_search
 	global phase
@@ -59,7 +59,7 @@ def search():
 	dt = 1/Hz
 	t_search = t - t_search_start
 
-	r = 0.3*t_search
+	r = 0.4*t_search
 	if (r > 1.0):
 		r = 1.0
 
@@ -93,7 +93,7 @@ def search():
 	# rospy.loginfo('xd %f \t yd %f \t zd %f \t yawd %f', xd, yd, zd, yawd)
 
 def converge():
-	print("converging to target...")
+	# print("converging to target...")
 	global mission_no, xd, yd, zd, yawd, x, y, z
 	global r_ac, v_ac, x_obj, y_obj
 
@@ -132,8 +132,8 @@ def land():
 
 	flag_initialized = False
 	
-	print("Sleeping for 4 secs")
-	time.sleep(4.0)
+	print("Sleeping for 3.5 secs")
+	time.sleep(3.5)
 	print("Woke up from sleep")	
 
 	if (master_mission_no == 3):
@@ -210,6 +210,8 @@ def target_feedback(data):
 	global x_obj, y_obj, z_obj, mission_no
 	if(mission_no == 0):
 		mission_no = 1
+		print("converging to target...")
+		
 	x_obj = data.pose.pose.position.x
 	y_obj = data.pose.pose.position.y
 	z_obj = data.pose.pose.position.z
@@ -244,6 +246,7 @@ def get_master_mission(data):
 	master_mission_no = data.data
 
 	if (master_mission_no==3 and flag_initialized==False):
+		print("searching for target...")
 		x_srch = x
 		y_srch = y
 		yaw0 = yaw
@@ -251,6 +254,7 @@ def get_master_mission(data):
 		mission_no = 0
 
 	if (master_mission_no==5 and flag_initialized==False):
+		print("searching for target...")
 		x_srch = x
 		y_srch = y
 		yaw0 = yaw

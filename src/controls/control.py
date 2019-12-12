@@ -46,7 +46,7 @@ Trust_R = 2.0*0.55
 
 A = 0.3
 T = 10.0
-omega = 2.0*3.14/T
+omega = 1.0*3.14/T
 
 def control():
 	global ctrl, t, t0
