@@ -70,7 +70,7 @@ def search():
 		zd = 0.25
 
 	if (master_mission_no == 5):
-		yawd = yaw0 - 30*(3.14/180)
+		yawd = yaw0 + 30*(3.14/180)
 		xd = x_srch + r*cos(yawd)
 		yd = y_srch + r*sin(yawd)
 		zd = 0.25

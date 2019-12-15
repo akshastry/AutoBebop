@@ -51,10 +51,10 @@ Q[2,2] = 10**(-3)
 Q[3,3] = 10**(-3)
 
 R = np.zeros((4,4))
-R[0,0] = 10**(-1)
-R[1,1] = 10**(-1)
-R[2,2] = 10**(-1)
-R[3,3] = 10**(-1)
+R[0,0] = 10**(-2)
+R[1,1] = 10**(-2)
+R[2,2] = 10**(-2)
+R[3,3] = 10**(-2)
 
 P = np.zeros((4,4))
 P[0,0] = 10**(2)
@@ -153,7 +153,7 @@ def main():
 			pose_EKF.pose.covariance = np.array([P[0,0],0,0,0,0,0,0,P[1,1],0,0,0,0,0,0,P[2,2],0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,P[3,3]])
 			
 			# print(np.linalg.norm(pose_EKF.pose.covariance))
-			if (np.linalg.norm(pose_EKF.pose.covariance)<0.04):
+			if (np.linalg.norm(pose_EKF.pose.covariance)<0.02):
 				# rospy.loginfo('x %f \t y %f \t z %f \t yaw %f', X_k[0], X_k[1], X_k[2], X_k[3])
 				pub.publish(pose_EKF)
 
